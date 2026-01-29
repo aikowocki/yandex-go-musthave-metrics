@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/httpError"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/httperror"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
 )
 
@@ -31,7 +31,7 @@ type MetricRequest struct {
 	Value string
 }
 
-func ParseAndValidate(path string) (Metric, *httpError.HTTPError) {
+func ParseAndValidate(path string) (Metric, *httperror.HTTPError) {
 	metric, err := parsePath(path).validate()
 	if err != nil {
 		return nil, err
@@ -56,9 +56,9 @@ func getOrEmpty(parts []string, i int) string {
 	return parts[i]
 }
 
-func (r *MetricRequest) validate() (Metric, *httpError.HTTPError) {
+func (r *MetricRequest) validate() (Metric, *httperror.HTTPError) {
 	if r.Name == "" {
-		return nil, httpError.NotFound("metric name required")
+		return nil, httperror.NotFound("metric name required")
 	}
 	var metric Metric
 
@@ -66,7 +66,7 @@ func (r *MetricRequest) validate() (Metric, *httpError.HTTPError) {
 	case model.Gauge:
 		value, err := strconv.ParseFloat(r.Value, 64)
 		if err != nil {
-			return nil, httpError.BadRequest("invalid gauge value")
+			return nil, httperror.BadRequest("invalid gauge value")
 		}
 		metric = &GaugeMetric{
 			Name:  r.Name,
@@ -75,14 +75,14 @@ func (r *MetricRequest) validate() (Metric, *httpError.HTTPError) {
 	case model.Counter:
 		value, err := strconv.ParseInt(r.Value, 10, 64)
 		if err != nil {
-			return nil, httpError.BadRequest("invalid counter value")
+			return nil, httperror.BadRequest("invalid counter value")
 		}
 		metric = &CounterMetric{
 			Name:  r.Name,
 			Value: value,
 		}
 	default:
-		return nil, httpError.BadRequest("invalid metric type")
+		return nil, httperror.BadRequest("invalid metric type")
 	}
 
 	return metric, nil

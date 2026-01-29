@@ -1,0 +1,53 @@
+version: '3'
+
+tasks:
+  build:
+    desc: Build server and agent
+    cmds:
+      - task: build-server
+      - task: build-agent
+
+  build-server:
+    desc: Build server
+    dir: cmd/server
+    cmds:
+      - go build -o server *.go
+
+  build-agent:
+    desc: Build agent
+    dir: cmd/agent
+    cmds:
+      - go build -o agent *.go
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./...
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  run-server:
+    desc: Run server
+    cmds:
+      - go run ./cmd/server
+
+  run-agent:
+    desc: Run agent
+    cmds:
+      - go run ./cmd/agent
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f cmd/server/server
+      - rm -f cmd/agent/agent
+
+  autotest-1:
+    desc: Run iteration 1 autotest
+    deps: [build-server]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration1$ -binary-path=cmd/server/server

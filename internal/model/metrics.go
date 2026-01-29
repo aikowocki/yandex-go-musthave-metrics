@@ -1,8 +1,10 @@
-package models
+package model
+
+type MetricType string
 
 const (
-	Counter = "counter"
-	Gauge   = "gauge"
+	Counter MetricType = "counter"
+	Gauge   MetricType = "gauge"
 )
 
 // NOTE: Не усложняем пример, вводя иерархическую вложенность структур.

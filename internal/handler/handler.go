@@ -35,5 +35,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		h.storage.UpdateCounter(m.Name, m.Value)
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 }

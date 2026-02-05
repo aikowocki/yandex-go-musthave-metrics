@@ -24,6 +24,12 @@ tasks:
     cmds:
       - go test ./...
 
+  test-cover:
+    desc: Run tests with coverage report
+    cmds:
+      - go test ./... -coverprofile=coverage.out
+      - go tool cover -html=coverage.out
+
   fmt:
     desc: Format code
     cmds:
@@ -51,3 +57,10 @@ tasks:
     cmds:
       - chmod +x metricstest_v2-darwin-arm64
       - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration1$ -binary-path=cmd/server/server
+
+  autotest-2:
+    desc: Run iteration 2 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration2[AB]$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=.

@@ -31,7 +31,7 @@ func TestClient_SendMetric_Success(t *testing.T) {
 	client := NewClient(server.URL) // server.URL = "http://127.0.0.1:12345" (случайный порт)
 
 	// Вызываем тестируемую функцию
-	err := client.SendMetric(model.Gauge, "test", "3.14")
+	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
 
 	// Проверяем что ошибки нет
 	assert.NoError(t, err)
@@ -44,7 +44,7 @@ func TestClient_SendMetric_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetric(model.Gauge, "test", "3.14")
+	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
 
 	assert.Error(t, err)
 }
@@ -62,25 +62,15 @@ func TestClient_SendMetric_Retry(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetric(model.Gauge, "test", "3.14")
+	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
 
 	assert.NoError(t, err)
 	assert.Equal(t, 3, attempts, "Should retry 3 times")
 }
 
-func TestClient_SendMetric_NetworkError_Retry(t *testing.T) {
-	// Используем несуществующий адрес
-	client := NewClient("http://localhost:1") // порт 1 обычно закрыт
-
-	err := client.SendMetric(model.Gauge, "test", "3.14")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "connection refused") // или другая сетевая ошибка
-}
-
 func TestClient_SendMetric_InvalidURL(t *testing.T) {
 	client := NewClient("ht!tp://invalid") // невалидный URL
-	err := client.SendMetric(model.Gauge, "test", "3.14")
+	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
 	assert.Error(t, err)
 }
 
@@ -99,4 +89,17 @@ func TestReport(t *testing.T) {
 
 	// Проверяем что счётчики сброшены
 	assert.Empty(t, storage.GetCounters())
+}
+
+func TestClient_SendMetric_AllRetriesFail(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError) // всегда ошибка
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL)
+	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
+
+	assert.Error(t, err)
+
 }

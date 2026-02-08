@@ -1,23 +1,28 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/handler"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/middleware"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/repository"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
-	storage := repository.NewMemStorage()
-	updateHandler := handler.NewHandler(storage)
+	stor := metric.NewMetricMemoryStorage()
 
-	// Создаем кастомный маршрутизатор
-	mux := http.NewServeMux()
-	// Доступен только POST метод
-	mux.HandleFunc("/update/", middleware.AllowMethods(http.MethodPost)(updateHandler.Update))
-	err := http.ListenAndServe(`:8080`, mux)
-	if err != nil {
-		panic(err)
+	repo := repository.NewMetricRepository(stor)
+
+	metricHandler := handler.NewMetricHandler(repo)
+
+	r := chi.NewRouter()
+	r.Post("/update/{type}/{name}/{value}", metricHandler.Update)
+	r.Get("/value/{type}/{name}", metricHandler.Get)
+	r.Get("/", metricHandler.List)
+	if err := http.ListenAndServe(":8080", r); err != nil {
+		log.Fatal(err)
 	}
+
 }

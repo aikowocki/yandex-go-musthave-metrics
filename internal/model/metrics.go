@@ -1,12 +1,5 @@
 package model
 
-type MetricType string
-
-const (
-	Counter MetricType = "counter"
-	Gauge   MetricType = "gauge"
-)
-
 // Metrics NOTE: Не усложняем пример, вводя иерархическую вложенность структур.
 // Ограничиваясь плоской моделью.
 // Delta и Value объявлены через указатели,

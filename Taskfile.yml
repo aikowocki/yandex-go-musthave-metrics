@@ -64,3 +64,10 @@ tasks:
     cmds:
       - chmod +x metricstest_v2-darwin-arm64
       - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration2[AB]$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=.
+
+  autotest-3:
+    desc: Run iteration 3 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration3[AB]$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=.

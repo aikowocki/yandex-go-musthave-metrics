@@ -4,19 +4,25 @@ import (
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
 )
 
 func main() {
+	cfg := config.NewAgentConfig()
 	storage := agent.NewLocalStorage()
-	client := agent.NewClient("http://localhost:8080")
+	client := agent.NewClient("http://" + cfg.ServerAddress)
 
+	pollInterval := int(cfg.PollInterval.Seconds())
+	reportInterval := int(cfg.ReportInterval.Seconds())
 	i := 0
 	for {
-		agent.CollectMetrics(storage)
-		i++
-		if i%5 == 0 {
+		if i%pollInterval == 0 {
+			agent.CollectMetrics(storage)
+		}
+		if i%reportInterval == 0 {
 			agent.Report(storage, client)
 		}
-		time.Sleep(2 * time.Second)
+		i++
+		time.Sleep(time.Second)
 	}
 }

@@ -14,7 +14,7 @@ func main() {
 
 	// Горутина для сбора метрик
 	go func() {
-		pollTicker := time.NewTicker(cfg.PollInterval)
+		pollTicker := time.NewTicker(time.Duration(cfg.PollInterval))
 		defer pollTicker.Stop()
 		for range pollTicker.C {
 			agent.CollectMetrics(storage)
@@ -22,7 +22,7 @@ func main() {
 	}()
 	// Горутина для отправки метрик
 	go func() {
-		ticker := time.NewTicker(cfg.ReportInterval)
+		ticker := time.NewTicker(time.Duration(cfg.ReportInterval))
 		defer ticker.Stop()
 		for range ticker.C {
 			agent.Report(storage, client)

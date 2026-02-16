@@ -7,43 +7,42 @@ import (
 	"strconv"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/repository"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/service"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
 )
 
 type MetricHandler struct {
-	repo *repository.MetricRepository
+	service service.MetricService
 }
 
-func NewMetricHandler(repo *repository.MetricRepository) *MetricHandler {
-	return &MetricHandler{repo: repo}
+func NewMetricHandler(service service.MetricService) *MetricHandler {
+	return &MetricHandler{service: service}
 }
 
 func (h *MetricHandler) Update(w http.ResponseWriter, r *http.Request) {
-	m, err := model.NewMetric(
+
+	if err := h.service.Update(
 		chi.URLParam(r, "type"),
 		chi.URLParam(r, "name"),
 		chi.URLParam(r, "value"),
-	)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	); err != nil {
+		switch {
+		case errors.Is(err, model.ErrEmptyName):
+			http.Error(w, err.Error(), http.StatusNotFound)
+		case errors.Is(err, model.ErrInvalidType),
+			errors.Is(err, model.ErrInvalidValue):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		default:
+			http.Error(w, "failed to update metric", http.StatusInternalServerError)
+		}
 		return
 	}
-
-	if err := h.repo.Save(m); err != nil {
-		http.Error(w, "failed to save metric", http.StatusInternalServerError)
-		return
-	}
-
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
-	metricType := chi.URLParam(r, "type")
-	name := chi.URLParam(r, "name")
-
-	m, err := h.repo.Get(metricType, name)
+	m, err := h.service.Get(chi.URLParam(r, "type"), chi.URLParam(r, "name"))
 	if err != nil {
 		if errors.Is(err, metric.ErrNotFound) {
 			http.Error(w, "metric not found", http.StatusNotFound)
@@ -63,7 +62,7 @@ func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
-	metrics, err := h.repo.GetAll()
+	metrics, err := h.service.GetAll()
 	if err != nil {
 		http.Error(w, "failed to get metrics", http.StatusInternalServerError)
 		return

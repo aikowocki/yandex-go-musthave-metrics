@@ -1,9 +1,14 @@
 package model
 
 import (
+	"errors"
 	"strconv"
+)
 
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/httperror"
+var (
+	ErrInvalidType  = errors.New("invalid metric type")
+	ErrInvalidValue = errors.New("invalid metric value")
+	ErrEmptyName    = errors.New("empty metric name")
 )
 
 type MetricType string
@@ -32,13 +37,13 @@ func (c *CounterMetric) getType() MetricType { return MetricTypeCounter }
 
 func NewMetric(Type string, Name string, Value string) (Metric, error) {
 	if Name == "" {
-		return nil, httperror.NotFound("metric name required")
+		return nil, ErrEmptyName
 	}
 	switch MetricType(Type) {
 	case MetricTypeGauge:
 		value, err := strconv.ParseFloat(Value, 64)
 		if err != nil {
-			return nil, httperror.BadRequest("invalid gauge value")
+			return nil, ErrInvalidValue
 		}
 		return &GaugeMetric{
 			Name:  Name,
@@ -47,14 +52,14 @@ func NewMetric(Type string, Name string, Value string) (Metric, error) {
 	case MetricTypeCounter:
 		value, err := strconv.ParseInt(Value, 10, 64)
 		if err != nil {
-			return nil, httperror.BadRequest("invalid counter value")
+			return nil, ErrInvalidValue
 		}
 		return &CounterMetric{
 			Name:  Name,
 			Value: value,
 		}, nil
 	default:
-		return nil, httperror.BadRequest("invalid metric type")
+		return nil, ErrInvalidType
 	}
 
 }

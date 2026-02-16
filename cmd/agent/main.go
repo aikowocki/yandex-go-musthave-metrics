@@ -12,17 +12,22 @@ func main() {
 	storage := agent.NewLocalStorage()
 	client := agent.NewClient("http://" + cfg.ServerAddress)
 
-	pollInterval := int(cfg.PollInterval.Seconds())
-	reportInterval := int(cfg.ReportInterval.Seconds())
-	i := 0
-	for {
-		if i%pollInterval == 0 {
+	// Горутина для сбора метрик
+	go func() {
+		pollTicker := time.NewTicker(cfg.PollInterval)
+		defer pollTicker.Stop()
+		for range pollTicker.C {
 			agent.CollectMetrics(storage)
 		}
-		if i%reportInterval == 0 {
+	}()
+	// Горутина для отправки метрик
+	go func() {
+		ticker := time.NewTicker(cfg.ReportInterval)
+		defer ticker.Stop()
+		for range ticker.C {
 			agent.Report(storage, client)
 		}
-		i++
-		time.Sleep(time.Second)
-	}
+	}()
+	// Блокируем main, что бы программа не завершилась
+	select {}
 }

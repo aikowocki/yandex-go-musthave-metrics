@@ -87,8 +87,9 @@ func TestReport(t *testing.T) {
 	client := NewClient(server.URL)
 	Report(storage, client)
 
-	// Проверяем что счётчики сброшены
-	assert.Empty(t, storage.GetCounters())
+	// Проверяем что счётчик сброшен
+	_, ok := storage.GetCounter("count")
+	assert.False(t, ok, "counter should be reset after report")
 }
 
 func TestClient_SendMetric_AllRetriesFail(t *testing.T) {

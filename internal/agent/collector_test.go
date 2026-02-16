@@ -4,15 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCollectMetrics(t *testing.T) {
 	storage := NewLocalStorage()
 
 	CollectMetrics(storage)
-
-	gauges := storage.GetGauges()
-	counters := storage.GetCounters()
 
 	var expectedGaugeMetrics = []string{
 		"Alloc", "BuckHashSys", "Frees", "GCCPUFraction", "GCSys",
@@ -28,10 +26,12 @@ func TestCollectMetrics(t *testing.T) {
 	}
 
 	for _, metricName := range expectedGaugeMetrics {
-		assert.Contains(t, gauges, metricName, "Missing metric: %s", metricName)
+		_, ok := storage.GetGauge(metricName)
+		assert.True(t, ok, "Missing gauge metric: %s", metricName)
 	}
 	for _, metricName := range expectedCounters {
-		assert.Contains(t, counters, metricName, "Missing metric: %s", metricName)
+		_, ok := storage.GetCounter(metricName)
+		assert.True(t, ok, "Missing counter metric: %s", metricName)
 	}
 }
 
@@ -41,6 +41,7 @@ func TestCollectMetrics_PollCountIncrement(t *testing.T) {
 	CollectMetrics(storage)
 	CollectMetrics(storage)
 
-	counters := storage.GetCounters()
-	assert.Equal(t, int64(2), counters["PollCount"])
+	v, ok := storage.GetCounter("PollCount")
+	require.True(t, ok)
+	assert.Equal(t, int64(2), v)
 }

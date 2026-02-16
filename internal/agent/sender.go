@@ -31,23 +31,22 @@ func NewClient(serverURL string) *Client {
 	}
 }
 
-func Report(storage MetricStorage, сlient *Client) {
+func Report(storage MetricStorage, client *Client) {
 	fmt.Println("Reporting metrics to server...")
-	for name, value := range storage.GetGauges() {
-		err := сlient.SendMetric(model.MetricTypeGauge, name, strconv.FormatFloat(value, 'f', -1, 64))
+
+	storage.ForEachGauge(func(name string, value float64) {
+		err := client.SendMetric(model.MetricTypeGauge, name, strconv.FormatFloat(value, 'f', -1, 64))
 		if err != nil {
 			fmt.Printf("Failed to send gauge %s: %v\n", name, err)
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	for name, value := range storage.GetCounters() {
-		err := сlient.SendMetric(model.MetricTypeCounter, name, strconv.FormatInt(value, 10))
+	})
+
+	for name, value := range storage.SnapshotCounters() {
+		err := client.SendMetric(model.MetricTypeCounter, name, strconv.FormatInt(value, 10))
 		if err != nil {
 			fmt.Printf("Failed to send counter %s: %v\n", name, err)
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
-	storage.ResetCounters()
 }
 
 func (c *Client) SendMetric(metricType model.MetricType, name, value string) error {

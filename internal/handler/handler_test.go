@@ -7,6 +7,7 @@ import (
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/repository"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/service"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +57,8 @@ func TestHandler_Update(t *testing.T) {
 			// Создаём storage и repository
 			stor := metric.NewMetricMemoryStorage()
 			repo := repository.NewMetricRepository(stor)
-			handler := NewMetricHandler(repo)
+			svc := service.NewMetricService(repo)
+			handler := NewMetricHandler(svc)
 
 			// Создаём роутер с chi
 			r := chi.NewRouter()
@@ -110,7 +112,8 @@ func TestHandler_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			stor := metric.NewMetricMemoryStorage()
 			repo := repository.NewMetricRepository(stor)
-			handler := NewMetricHandler(repo)
+			svc := service.NewMetricService(repo)
+			handler := NewMetricHandler(svc)
 
 			// Настраиваем метрики
 			if tt.setupMetric != nil {
@@ -137,7 +140,8 @@ func TestHandler_Get(t *testing.T) {
 func TestHandler_List(t *testing.T) {
 	stor := metric.NewMetricMemoryStorage()
 	repo := repository.NewMetricRepository(stor)
-	handler := NewMetricHandler(repo)
+	svc := service.NewMetricService(repo)
+	handler := NewMetricHandler(svc)
 
 	// Добавляем метрики
 	repo.Save(&model.GaugeMetric{Name: "cpu", Value: 0.5})

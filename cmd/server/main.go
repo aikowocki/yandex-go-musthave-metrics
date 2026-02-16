@@ -7,6 +7,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/handler"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/repository"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/service"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
 )
@@ -18,7 +19,9 @@ func main() {
 
 	repo := repository.NewMetricRepository(stor)
 
-	metricHandler := handler.NewMetricHandler(repo)
+	svc := service.NewMetricService(repo)
+
+	metricHandler := handler.NewMetricHandler(svc)
 
 	r := chi.NewRouter()
 	r.Post("/update/{type}/{name}/{value}", metricHandler.Update)

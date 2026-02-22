@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	zap_logger, cleanup, err := logger.New()
+	zapLogger, cleanup, err := logger.New()
 	if err != nil {
 		panic(err)
 	}
@@ -33,17 +33,17 @@ func main() {
 	metricHandler := handler.NewMetricHandler(svc)
 
 	r := chi.NewRouter()
-	r.Use(middleware.WithLogging(zap_logger))
+	r.Use(middleware.WithLogging(zapLogger))
 	r.Post("/update/{type}/{name}/{value}", metricHandler.Update)
 	r.Get("/value/{type}/{name}", metricHandler.Get)
 	r.Get("/", metricHandler.List)
 	log.Printf("Server starting on port: %s", cfg.Address)
-	zap_logger.Infow(
+	zapLogger.Infow(
 		"Server starting",
 		"address", cfg.Address,
 	)
 	if err := http.ListenAndServe(cfg.Address, r); err != nil {
-		zap_logger.Fatalw(err.Error(), "event", "start server")
+		zapLogger.Fatalw(err.Error(), "event", "start server")
 
 	}
 

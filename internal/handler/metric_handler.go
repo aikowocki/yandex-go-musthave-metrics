@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,24 +22,55 @@ func NewMetricHandler(service service.MetricService) *MetricHandler {
 }
 
 func (h *MetricHandler) Update(w http.ResponseWriter, r *http.Request) {
-
-	if err := h.service.Update(
+	m, err := model.NewMetric(
 		chi.URLParam(r, "type"),
 		chi.URLParam(r, "name"),
-		chi.URLParam(r, "value"),
-	); err != nil {
-		switch {
-		case errors.Is(err, model.ErrEmptyName):
-			http.Error(w, err.Error(), http.StatusNotFound)
-		case errors.Is(err, model.ErrInvalidType),
-			errors.Is(err, model.ErrInvalidValue):
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		default:
-			http.Error(w, "failed to update metric", http.StatusInternalServerError)
-		}
+		chi.URLParam(r, "value"))
+
+	if err != nil {
+		h.handleUpdateError(err, w)
+		return
+	}
+
+	if _, err := h.service.Update(m); err != nil {
+		h.handleUpdateError(err, w)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *MetricHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
+	var mr model.MetricDTO
+	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	m, err := mr.ToMetric()
+
+	if err != nil {
+		h.handleUpdateError(err, w)
+		return
+	}
+
+	if m, err = h.service.Update(m); err != nil {
+		h.handleUpdateError(err, w)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(m.ToDTO())
+}
+
+func (h *MetricHandler) handleUpdateError(err error, w http.ResponseWriter) {
+	switch {
+	case errors.Is(err, model.ErrEmptyName):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, model.ErrInvalidType),
+		errors.Is(err, model.ErrInvalidValue):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+	default:
+		http.Error(w, "failed to update metric", http.StatusInternalServerError)
+	}
 }
 
 func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -55,9 +87,34 @@ func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	switch m := m.(type) {
 	case *model.GaugeMetric:
-		fmt.Fprintf(w, "%s", strconv.FormatFloat(m.Value, 'f', -1, 64))
+		fmt.Fprintf(w, "%s", strconv.FormatFloat(m.GetValue(), 'f', -1, 64))
 	case *model.CounterMetric:
-		fmt.Fprintf(w, "%d", m.Value)
+		fmt.Fprintf(w, "%d", m.GetValue())
+	}
+}
+
+func (h *MetricHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
+	var mr model.MetricDTO
+	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	m, err := h.service.Get(mr.MType, mr.ID)
+	if err != nil {
+		h.handleGetError(err, w)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(m.ToDTO())
+
+}
+
+func (h *MetricHandler) handleGetError(err error, w http.ResponseWriter) {
+	switch {
+	case errors.Is(err, metric.ErrNotFound):
+		http.Error(w, err.Error(), http.StatusNotFound)
+	default:
+		http.Error(w, "failed to get metric", http.StatusInternalServerError)
 	}
 }
 
@@ -73,9 +130,9 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 	for _, m := range metrics {
 		switch m := m.(type) {
 		case *model.GaugeMetric:
-			fmt.Fprintf(w, "<li>%s (gauge): %s</li>", m.Name, strconv.FormatFloat(m.Value, 'f', -1, 64))
+			fmt.Fprintf(w, "<li>%s (gauge): %s</li>", m.GetName(), strconv.FormatFloat(m.GetValue(), 'f', -1, 64))
 		case *model.CounterMetric:
-			fmt.Fprintf(w, "<li>%s (counter): %d</li>", m.Name, m.Value)
+			fmt.Fprintf(w, "<li>%s (counter): %d</li>", m.GetName(), m.GetValue())
 		}
 	}
 	fmt.Fprintf(w, "</ul></body></html>")

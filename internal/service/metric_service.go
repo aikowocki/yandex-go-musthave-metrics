@@ -6,7 +6,7 @@ import (
 )
 
 type MetricService interface {
-	Update(metricType, name, value string) error
+	Update(model.Metric) (model.Metric, error)
 	Get(metricType, name string) (model.Metric, error)
 	GetAll() ([]model.Metric, error)
 }
@@ -19,13 +19,7 @@ func NewMetricService(repo *repository.MetricRepository) MetricService {
 	return &metricService{repo: repo}
 }
 
-func (s *metricService) Update(metricType, name, value string) error {
-	m, err := model.NewMetric(metricType, name, value)
-
-	if err != nil {
-		return err
-	}
-
+func (s *metricService) Update(m model.Metric) (model.Metric, error) {
 	return s.repo.Save(m)
 }
 

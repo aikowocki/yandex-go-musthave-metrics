@@ -26,20 +26,14 @@ func (r *MetricRepository) Get(metricType, name string) (model.Metric, error) {
 		if err != nil {
 			return nil, fmt.Errorf("get counter %q: %w", name, err)
 		}
-		return &model.CounterMetric{
-			Name:  name,
-			Value: v,
-		}, nil
+		return model.NewCounterMetric(name, v), nil
 
 	case string(model.MetricTypeGauge):
 		v, err := r.storage.GetGauge(name)
 		if err != nil {
 			return nil, fmt.Errorf("get gauge %q: %w", name, err)
 		}
-		return &model.GaugeMetric{
-			Name:  name,
-			Value: v,
-		}, nil
+		return model.NewGaugeMetric(name, v), nil
 
 	default:
 		return nil, ErrUnknownType
@@ -55,10 +49,7 @@ func (r *MetricRepository) GetAll() ([]model.Metric, error) {
 		return nil, fmt.Errorf("get all gauges: %w", err)
 	}
 	for name, v := range gauges {
-		result = append(result, &model.GaugeMetric{
-			Name:  name,
-			Value: v,
-		})
+		result = append(result, model.NewGaugeMetric(name, v))
 	}
 
 	counters, err := r.storage.GetAllCounters()
@@ -66,29 +57,29 @@ func (r *MetricRepository) GetAll() ([]model.Metric, error) {
 		return nil, fmt.Errorf("get all counters: %w", err)
 	}
 	for name, v := range counters {
-		result = append(result, &model.CounterMetric{
-			Name:  name,
-			Value: v,
-		})
+		result = append(result, model.NewCounterMetric(name, v))
 	}
 
 	return result, nil
 }
 
 // Save Сохранить или обновить метрику
-func (r *MetricRepository) Save(m model.Metric) error {
+func (r *MetricRepository) Save(m model.Metric) (model.Metric, error) {
 	switch m := m.(type) {
 	case *model.CounterMetric:
-		if err := r.storage.UpdateCounter(m.Name, m.Value); err != nil {
-			return fmt.Errorf("save counter %q: %w", m.Name, err)
+		newVal, err := r.storage.UpdateCounter(m.GetName(), m.GetValue())
+		if err != nil {
+			return nil, fmt.Errorf("save counter %q: %w", m.GetName(), err)
 		}
-		return nil
+		return model.NewCounterMetric(m.GetName(), newVal), nil
 	case *model.GaugeMetric:
-		if err := r.storage.UpdateGauge(m.Name, m.Value); err != nil {
-			return fmt.Errorf("save gauge %q: %w", m.Name, err)
+		newVal, err := r.storage.UpdateGauge(m.GetName(), m.GetValue())
+		if err != nil {
+			return nil, fmt.Errorf("save gauge %q: %w", m.GetName(), err)
 		}
-		return nil
+		return model.NewGaugeMetric(m.GetName(), newVal), nil
+
 	default:
-		return ErrUnknownType
+		return nil, ErrUnknownType
 	}
 }

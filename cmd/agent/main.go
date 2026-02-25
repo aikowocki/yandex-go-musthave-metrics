@@ -25,7 +25,7 @@ func main() {
 		ticker := time.NewTicker(time.Duration(cfg.ReportInterval))
 		defer ticker.Stop()
 		for range ticker.C {
-			agent.Report(storage, client)
+			agent.ReportJSON(storage, client)
 		}
 	}()
 	// Блокируем main, что бы программа не завершилась

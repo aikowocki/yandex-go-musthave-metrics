@@ -11,7 +11,7 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 	storage := NewMetricMemoryStorage()
 
 	// Сохраняем
-	err := storage.UpdateGauge("cpu", 0.5)
+	_, err := storage.UpdateGauge("cpu", 0.5)
 	assert.NoError(t, err)
 
 	// Проверяем
@@ -20,7 +20,7 @@ func TestMemStorage_UpdateGauge(t *testing.T) {
 	assert.Equal(t, 0.5, value)
 
 	// Обновляем (должно заменить)
-	err = storage.UpdateGauge("cpu", 0.8)
+	_, err = storage.UpdateGauge("cpu", 0.8)
 	assert.NoError(t, err)
 
 	value, err = storage.GetGauge("cpu")
@@ -32,7 +32,7 @@ func TestMemStorage_UpdateCounter(t *testing.T) {
 	storage := NewMetricMemoryStorage()
 
 	// Первое значение
-	err := storage.UpdateCounter("requests", 10)
+	_, err := storage.UpdateCounter("requests", 10)
 	assert.NoError(t, err)
 
 	value, err := storage.GetCounter("requests")
@@ -40,7 +40,7 @@ func TestMemStorage_UpdateCounter(t *testing.T) {
 	assert.Equal(t, int64(10), value)
 
 	// Второе значение (должно суммироваться)
-	err = storage.UpdateCounter("requests", 5)
+	_, err = storage.UpdateCounter("requests", 5)
 	assert.NoError(t, err)
 
 	value, err = storage.GetCounter("requests")

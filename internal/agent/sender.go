@@ -16,10 +16,10 @@ type Client struct {
 
 func NewClient(serverURL string) *Client {
 	client := resty.New().
-		SetTimeout(1*time.Second).
+		SetHeader("Content-Type", "application/json").
+		SetTimeout(1 * time.Second).
 		SetRetryCount(3).
-		SetRetryWaitTime(1*time.Second).
-		SetHeader("Content-Type", "text/plain").
+		SetRetryWaitTime(1 * time.Second).
 		AddRetryCondition(func(r *resty.Response, err error) bool {
 			// Retry на сетевые ошибки или 5xx статусы
 			return err != nil || (r != nil && r.StatusCode() >= 500)
@@ -31,6 +31,7 @@ func NewClient(serverURL string) *Client {
 	}
 }
 
+// Deprecated: use ReportJSON
 func Report(storage MetricStorage, client *Client) {
 	fmt.Println("Reporting metrics to server...")
 
@@ -49,10 +50,54 @@ func Report(storage MetricStorage, client *Client) {
 	}
 }
 
+func ReportJSON(storage MetricStorage, client *Client) {
+	fmt.Println("Reporting metrics to server...")
+
+	storage.ForEachGauge(func(name string, value float64) {
+		v := value
+		err := client.SendMetricJSON(model.MetricDTO{
+			ID:    name,
+			MType: string(model.MetricTypeGauge),
+			Value: &v,
+		})
+		if err != nil {
+			fmt.Printf("Failed to send gauge %s: %v\n", name, err)
+		}
+	})
+
+	for name, value := range storage.SnapshotCounters() {
+		v := value
+		err := client.SendMetricJSON(model.MetricDTO{
+			ID:    name,
+			MType: string(model.MetricTypeCounter),
+			Delta: &v,
+		})
+		if err != nil {
+			fmt.Printf("Failed to send counter %s: %v\n", name, err)
+		}
+	}
+}
+
+// Deprecated: use SendMetricJSON
 func (c *Client) SendMetric(metricType model.MetricType, name, value string) error {
 	url := fmt.Sprintf("%s/update/%s/%s/%s", c.serverURL, metricType, name, value)
 
 	resp, err := c.restyClient.R().Post(url)
+	if err != nil {
+		return fmt.Errorf("failed to send metric: %w", err)
+	}
+
+	if resp.StatusCode() != 200 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+
+	return nil
+}
+
+func (c *Client) SendMetricJSON(dto model.MetricDTO) error {
+	url := fmt.Sprintf("%s/update", c.serverURL)
+
+	resp, err := c.restyClient.R().SetBody(dto).Post(url)
 	if err != nil {
 		return fmt.Errorf("failed to send metric: %w", err)
 	}

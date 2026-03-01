@@ -22,7 +22,7 @@ type Client struct {
 
 func NewClient(serverURL string) *Client {
 	client := resty.New().
-		SetHeader(constants.HeaderContentType, constants.ContentTypeJson).
+		SetHeader(constants.HeaderContentType, constants.ContentTypeJSON).
 		SetHeader(constants.HeaderContentEncoding, middleware.EncodingGzip).
 		SetHeader(constants.HeaderAcceptEncoding, middleware.EncodingGzip).
 		SetTimeout(1 * time.Second).

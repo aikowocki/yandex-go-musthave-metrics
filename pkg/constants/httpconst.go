@@ -5,5 +5,5 @@ const (
 	HeaderContentLength   = "Content-Length"
 	HeaderAcceptEncoding  = "Accept-Encoding"
 	HeaderContentType     = "Content-Type"
-	ContentTypeJson       = "application/json"
+	ContentTypeJSON       = "application/json"
 )

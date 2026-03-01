@@ -29,7 +29,7 @@ func TestWithGzip_CompressResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set(constants.HeaderContentType, constants.ContentTypeJson)
+				w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
 				w.Write([]byte(`{"status":"ok"}`))
 			})
 

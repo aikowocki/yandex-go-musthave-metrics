@@ -4,9 +4,34 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/helper"
 	"go.uber.org/zap"
 )
+
+type (
+	ResponseData struct {
+		Status int
+		Size   int
+	}
+
+	LoggingResponseWriter struct {
+		http.ResponseWriter
+		ResponseData *ResponseData
+	}
+)
+
+func (r *LoggingResponseWriter) Write(b []byte) (int, error) {
+	if r.ResponseData.Status == 0 {
+		r.ResponseData.Status = http.StatusOK
+	}
+	size, err := r.ResponseWriter.Write(b)
+	r.ResponseData.Size += size
+	return size, err
+}
+
+func (r *LoggingResponseWriter) WriteHeader(statusCode int) {
+	r.ResponseWriter.WriteHeader(statusCode)
+	r.ResponseData.Status = statusCode
+}
 
 func WithLogging(sugar *zap.SugaredLogger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -17,12 +42,12 @@ func WithLogging(sugar *zap.SugaredLogger) func(http.Handler) http.Handler {
 			uri := r.RequestURI
 			method := r.Method
 
-			responseData := &helper.ResponseData{
+			responseData := &ResponseData{
 				Status: 0,
 				Size:   0,
 			}
 
-			lw := helper.LoggingResponseWriter{
+			lw := LoggingResponseWriter{
 				ResponseWriter: w,
 				ResponseData:   responseData,
 			}

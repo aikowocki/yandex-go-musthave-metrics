@@ -1,11 +1,17 @@
 package agent
 
 import (
+	"bytes"
+	"compress/gzip"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/middleware"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
+	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -16,15 +22,33 @@ type Client struct {
 
 func NewClient(serverURL string) *Client {
 	client := resty.New().
-		SetHeader("Content-Type", "application/json").
+		SetHeader(constants.HeaderContentType, constants.ContentTypeJson).
+		SetHeader(constants.HeaderContentEncoding, middleware.EncodingGzip).
+		SetHeader(constants.HeaderAcceptEncoding, middleware.EncodingGzip).
 		SetTimeout(1 * time.Second).
 		SetRetryCount(3).
 		SetRetryWaitTime(1 * time.Second).
 		AddRetryCondition(func(r *resty.Response, err error) bool {
 			// Retry на сетевые ошибки или 5xx статусы
 			return err != nil || (r != nil && r.StatusCode() >= 500)
+		}).
+		SetPreRequestHook(func(c *resty.Client, r *http.Request) error {
+			if r.Body == nil {
+				return nil
+			}
+			var buf bytes.Buffer
+			w := gzip.NewWriter(&buf)
+			_, err := io.Copy(w, r.Body)
+			if err != nil {
+				return err
+			}
+			if err := w.Close(); err != nil {
+				return err
+			}
+			r.Body = io.NopCloser(&buf)
+			r.ContentLength = int64(buf.Len())
+			return nil
 		})
-
 	return &Client{
 		restyClient: client,
 		serverURL:   serverURL,

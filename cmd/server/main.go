@@ -36,6 +36,8 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 	r.Use(middleware.WithLogging(zapLogger))
+	r.Use(middleware.WithGzipCompression())
+
 	r.Post("/update/{type}/{name}/{value}", metricHandler.Update)
 
 	//REST

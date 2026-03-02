@@ -106,3 +106,10 @@ tasks:
     cmds:
       - chmod +x metricstest_v2-darwin-arm64
       - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration8$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080
+
+  autotest-9:
+    desc: Run iteration 9 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration9$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -file-storage-path=backup/metrics.json

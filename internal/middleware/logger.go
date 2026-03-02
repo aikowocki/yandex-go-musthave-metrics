@@ -8,18 +8,18 @@ import (
 )
 
 type (
-	ResponseData struct {
+	responseData struct {
 		Status int
 		Size   int
 	}
 
-	LoggingResponseWriter struct {
+	loggingResponseWriter struct {
 		http.ResponseWriter
-		ResponseData *ResponseData
+		ResponseData *responseData
 	}
 )
 
-func (r *LoggingResponseWriter) Write(b []byte) (int, error) {
+func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	if r.ResponseData.Status == 0 {
 		r.ResponseData.Status = http.StatusOK
 	}
@@ -28,12 +28,12 @@ func (r *LoggingResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
-func (r *LoggingResponseWriter) WriteHeader(statusCode int) {
+func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.ResponseData.Status = statusCode
 }
 
-func WithLogging(sugar *zap.SugaredLogger) func(http.Handler) http.Handler {
+func WithLogging() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -42,12 +42,12 @@ func WithLogging(sugar *zap.SugaredLogger) func(http.Handler) http.Handler {
 			uri := r.RequestURI
 			method := r.Method
 
-			responseData := &ResponseData{
+			responseData := &responseData{
 				Status: 0,
 				Size:   0,
 			}
 
-			lw := LoggingResponseWriter{
+			lw := loggingResponseWriter{
 				ResponseWriter: w,
 				ResponseData:   responseData,
 			}
@@ -55,7 +55,7 @@ func WithLogging(sugar *zap.SugaredLogger) func(http.Handler) http.Handler {
 
 			duration := time.Since(start)
 
-			sugar.Infoln(
+			zap.S().Infow("request completed",
 				"uri", uri,
 				"method", method,
 				"duration", duration,

@@ -9,4 +9,6 @@ type MetricStorage interface {
 
 	GetAllGauges() (map[string]float64, error)
 	GetAllCounters() (map[string]int64, error)
+
+	RestoreBatch(gauges map[string]float64, counters map[string]int64) error
 }

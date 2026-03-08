@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -85,7 +86,8 @@ func TestHandler_Get(t *testing.T) {
 		{
 			name: "get gauge success",
 			setupMetric: func(repo *repository.MetricRepository) {
-				repo.Save(model.NewGaugeMetric("cpu", 0.5))
+				ctx := context.Background()
+				repo.Save(ctx, model.NewGaugeMetric("cpu", 0.5))
 			},
 			url:            "/value/gauge/cpu",
 			wantStatusCode: http.StatusOK,
@@ -94,7 +96,8 @@ func TestHandler_Get(t *testing.T) {
 		{
 			name: "get counter success",
 			setupMetric: func(repo *repository.MetricRepository) {
-				repo.Save(model.NewCounterMetric("requests", 10))
+				ctx := context.Background()
+				repo.Save(ctx, model.NewCounterMetric("requests", 10))
 			},
 			url:            "/value/counter/requests",
 			wantStatusCode: http.StatusOK,
@@ -140,11 +143,12 @@ func TestHandler_List(t *testing.T) {
 	repo := repository.NewMetricRepository(stor)
 	svc := service.NewMetricService(repo)
 	handler := NewMetricHandler(svc)
+	ctx := context.Background()
 
 	// Добавляем метрики
-	repo.Save(model.NewGaugeMetric("cpu", 0.5))
-	repo.Save(model.NewGaugeMetric("memory", 128.0))
-	repo.Save(model.NewCounterMetric("requests", 10))
+	repo.Save(ctx, model.NewGaugeMetric("cpu", 0.5))
+	repo.Save(ctx, model.NewGaugeMetric("memory", 128.0))
+	repo.Save(ctx, model.NewCounterMetric("requests", 10))
 
 	r := chi.NewRouter()
 	r.Get("/", handler.List)
@@ -306,7 +310,8 @@ func TestHandler_GetJSON(t *testing.T) {
 		{
 			name: "get gauge success",
 			setupMetric: func(repo *repository.MetricRepository) {
-				repo.Save(model.NewGaugeMetric("cpu", 0.5))
+				ctx := context.Background()
+				repo.Save(ctx, model.NewGaugeMetric("cpu", 0.5))
 			},
 			body:           `{"id":"cpu","type":"gauge"}`,
 			wantStatusCode: http.StatusOK,
@@ -315,7 +320,8 @@ func TestHandler_GetJSON(t *testing.T) {
 		{
 			name: "get counter success",
 			setupMetric: func(repo *repository.MetricRepository) {
-				repo.Save(model.NewCounterMetric("requests", 10))
+				ctx := context.Background()
+				repo.Save(ctx, model.NewCounterMetric("requests", 10))
 			},
 			body:           `{"id":"requests","type":"counter"}`,
 			wantStatusCode: http.StatusOK,
@@ -366,8 +372,9 @@ func TestHandler_GetJSON_ResponseBody(t *testing.T) {
 	repo := repository.NewMetricRepository(stor)
 	svc := service.NewMetricService(repo)
 	h := NewMetricHandler(svc)
+	ctx := context.Background()
 
-	repo.Save(model.NewGaugeMetric("cpu", 42.5))
+	repo.Save(ctx, model.NewGaugeMetric("cpu", 42.5))
 
 	r := chi.NewRouter()
 	r.Post("/value", h.GetJSON)

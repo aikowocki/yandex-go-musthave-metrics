@@ -20,7 +20,7 @@ import (
 func main() {
 	cleanup, err := logger.New()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	defer cleanup()
@@ -44,24 +44,9 @@ func main() {
 
 	svc := service.NewMetricService(repo)
 
-	metricHandler := handler.NewMetricHandler(svc)
+	h := handler.NewMetricHandler(svc)
+	r := setupRouter(h)
 
-	r := chi.NewRouter()
-	r.Use(chimw.StripSlashes)
-	r.Use(middleware.WithLogging())
-	r.Use(middleware.WithGzipCompression())
-
-	r.Post("/update/{type}/{name}/{value}", metricHandler.Update)
-
-	//REST
-	r.Group(func(r chi.Router) {
-		r.Use(chimw.AllowContentType("application/json"))
-		r.Post("/update", metricHandler.UpdateJSON)
-		r.Post("/value", metricHandler.GetJSON)
-	})
-
-	r.Get("/value/{type}/{name}", metricHandler.Get)
-	r.Get("/", metricHandler.List)
 	log.Printf("Server starting on port: %s", cfg.ServerAddress)
 	zap.S().Infow(
 		"Server starting",
@@ -72,5 +57,25 @@ func main() {
 		zap.S().Fatalw(err.Error(), "event", "start server")
 
 	}
+}
 
+func setupRouter(h *handler.MetricHandler) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(chimw.StripSlashes)
+	r.Use(middleware.WithLogging())
+	r.Use(middleware.WithGzipCompression())
+
+	r.Post("/update/{type}/{name}/{value}", h.Update)
+
+	//REST
+	r.Group(func(r chi.Router) {
+		r.Use(chimw.AllowContentType("application/json"))
+		r.Post("/update", h.UpdateJSON)
+		r.Post("/value", h.GetJSON)
+	})
+
+	r.Get("/value/{type}/{name}", h.Get)
+	r.Get("/", h.List)
+
+	return r
 }

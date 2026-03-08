@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"context"
 	"errors"
 	"maps"
 	"sync"
@@ -23,7 +24,7 @@ func NewMetricMemoryStorage() MetricStorage {
 	}
 }
 
-func (s *MetricMemoryStorage) GetGauge(name string) (float64, error) {
+func (s *MetricMemoryStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	v, ok := s.gauges[name]
@@ -33,14 +34,14 @@ func (s *MetricMemoryStorage) GetGauge(name string) (float64, error) {
 	return v, nil
 }
 
-func (s *MetricMemoryStorage) UpdateGauge(name string, value float64) (float64, error) {
+func (s *MetricMemoryStorage) UpdateGauge(ctx context.Context, name string, value float64) (float64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gauges[name] = value
 	return s.gauges[name], nil
 }
 
-func (s *MetricMemoryStorage) GetCounter(name string) (int64, error) {
+func (s *MetricMemoryStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	v, ok := s.counters[name]
@@ -50,26 +51,26 @@ func (s *MetricMemoryStorage) GetCounter(name string) (int64, error) {
 	return v, nil
 }
 
-func (s *MetricMemoryStorage) UpdateCounter(name string, value int64) (int64, error) {
+func (s *MetricMemoryStorage) UpdateCounter(ctx context.Context, name string, value int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counters[name] += value
 	return s.counters[name], nil
 }
 
-func (s *MetricMemoryStorage) GetAllGauges() (map[string]float64, error) {
+func (s *MetricMemoryStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.gauges), nil
 }
 
-func (s *MetricMemoryStorage) GetAllCounters() (map[string]int64, error) {
+func (s *MetricMemoryStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.counters), nil
 }
 
-func (s *MetricMemoryStorage) RestoreBatch(gauges map[string]float64, counters map[string]int64) error {
+func (s *MetricMemoryStorage) RestoreBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counters = counters

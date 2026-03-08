@@ -1,6 +1,10 @@
 package metric
 
-import "go.uber.org/zap"
+import (
+	"context"
+
+	"go.uber.org/zap"
+)
 
 type SyncBackupStorage struct {
 	storage MetricStorage
@@ -14,12 +18,12 @@ func NewSyncBackupStorage(storage MetricStorage, backup *FileBackup) MetricStora
 	}
 }
 
-func (s *SyncBackupStorage) GetGauge(name string) (float64, error) {
-	return s.storage.GetGauge(name)
+func (s *SyncBackupStorage) GetGauge(ctx context.Context, name string) (float64, error) {
+	return s.storage.GetGauge(ctx, name)
 }
 
-func (s *SyncBackupStorage) UpdateGauge(name string, value float64) (float64, error) {
-	value, err := s.storage.UpdateGauge(name, value)
+func (s *SyncBackupStorage) UpdateGauge(ctx context.Context, name string, value float64) (float64, error) {
+	value, err := s.storage.UpdateGauge(ctx, name, value)
 	if err == nil {
 		saveErr := s.backup.Save()
 		if saveErr != nil {
@@ -29,12 +33,12 @@ func (s *SyncBackupStorage) UpdateGauge(name string, value float64) (float64, er
 	return value, err
 }
 
-func (s *SyncBackupStorage) GetCounter(name string) (int64, error) {
-	return s.storage.GetCounter(name)
+func (s *SyncBackupStorage) GetCounter(ctx context.Context, name string) (int64, error) {
+	return s.storage.GetCounter(ctx, name)
 
 }
-func (s *SyncBackupStorage) UpdateCounter(name string, value int64) (int64, error) {
-	value, err := s.storage.UpdateCounter(name, value)
+func (s *SyncBackupStorage) UpdateCounter(ctx context.Context, name string, value int64) (int64, error) {
+	value, err := s.storage.UpdateCounter(ctx, name, value)
 	if err == nil {
 		saveErr := s.backup.Save()
 		if saveErr != nil {
@@ -44,14 +48,14 @@ func (s *SyncBackupStorage) UpdateCounter(name string, value int64) (int64, erro
 	return value, err
 }
 
-func (s *SyncBackupStorage) GetAllGauges() (map[string]float64, error) {
-	return s.storage.GetAllGauges()
+func (s *SyncBackupStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
+	return s.storage.GetAllGauges(ctx)
 
 }
-func (s *SyncBackupStorage) GetAllCounters() (map[string]int64, error) {
-	return s.storage.GetAllCounters()
+func (s *SyncBackupStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
+	return s.storage.GetAllCounters(ctx)
 }
 
-func (s *SyncBackupStorage) RestoreBatch(gauges map[string]float64, counters map[string]int64) error {
-	return s.storage.RestoreBatch(gauges, counters)
+func (s *SyncBackupStorage) RestoreBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+	return s.storage.RestoreBatch(ctx, gauges, counters)
 }

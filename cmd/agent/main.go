@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
@@ -29,5 +32,7 @@ func main() {
 		}
 	}()
 	// Блокируем main, что бы программа не завершилась
-	select {}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	<-sigCh
 }

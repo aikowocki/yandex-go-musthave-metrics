@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -11,10 +12,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// FileBackup управляет переодическим сохранением метрик в файл
 type FileBackup struct {
-	path     string
-	storage  MetricStorage
-	interval time.Duration
+	path     string        // путь к файлу бэкапа
+	storage  MetricStorage // хранилище метрик
+	interval time.Duration // интервал автосохранения (0 = отключено)
 }
 
 func NewFileBackup(path string, storage MetricStorage, interval time.Duration) *FileBackup {
@@ -26,11 +28,12 @@ func NewFileBackup(path string, storage MetricStorage, interval time.Duration) *
 }
 
 func (fb *FileBackup) Save() error {
-	counters, err := fb.storage.GetAllCounters()
+	ctx := context.Background()
+	counters, err := fb.storage.GetAllCounters(ctx)
 	if err != nil {
 		return err
 	}
-	gauges, err := fb.storage.GetAllGauges()
+	gauges, err := fb.storage.GetAllGauges(ctx)
 	if err != nil {
 		return err
 	}
@@ -62,7 +65,7 @@ func (fb *FileBackup) Save() error {
 }
 
 func (fb *FileBackup) Restore() error {
-
+	ctx := context.Background()
 	data, err := os.ReadFile(fb.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -88,7 +91,7 @@ func (fb *FileBackup) Restore() error {
 			counters[dto.ID] = *dto.Delta
 		}
 	}
-	return fb.storage.RestoreBatch(gauges, counters)
+	return fb.storage.RestoreBatch(ctx, gauges, counters)
 
 }
 

@@ -1,14 +1,21 @@
 package agent
 
+import (
+	"maps"
+	"sync"
+)
+
 type MetricStorage interface {
 	SetGauge(name string, value float64)
+	GetGauge(name string) (float64, bool)
 	AddCounter(name string, value int64)
-	GetGauges() map[string]float64
-	GetCounters() map[string]int64
-	ResetCounters()
+	GetCounter(name string) (int64, bool)
+	ForEachGauge(fn func(name string, value float64))
+	SnapshotCounters() map[string]int64
 }
 
 type LocalMetrics struct {
+	mu       sync.RWMutex
 	gauges   map[string]float64
 	counters map[string]int64
 }
@@ -21,24 +28,44 @@ func NewLocalStorage() MetricStorage {
 }
 
 func (m *LocalMetrics) SetGauge(name string, value float64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.gauges[name] = value
 }
 
+func (m *LocalMetrics) GetGauge(name string) (float64, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	v, ok := m.gauges[name]
+	return v, ok
+}
+
 func (m *LocalMetrics) AddCounter(name string, value int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.counters[name] += value
 }
 
-// GetGauges Получить все метрики типа gauges
-func (m *LocalMetrics) GetGauges() map[string]float64 {
-	return m.gauges
+func (m *LocalMetrics) GetCounter(name string) (int64, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	v, ok := m.counters[name]
+	return v, ok
 }
 
-// GetCounters Получить все метрики типа counter
-func (m *LocalMetrics) GetCounters() map[string]int64 {
-	return m.counters
+func (m *LocalMetrics) ForEachGauge(fn func(name string, value float64)) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for name, value := range m.gauges {
+		fn(name, value)
+	}
 }
 
-// ResetCounters обнуляем все счетчики
-func (m *LocalMetrics) ResetCounters() {
-	m.counters = make(map[string]int64)
+// SnapshotCounters возвращает копию счетчиков и поcле очищает их
+func (m *LocalMetrics) SnapshotCounters() map[string]int64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	defer func() { m.counters = make(map[string]int64) }()
+
+	return maps.Clone(m.counters)
 }

@@ -2,25 +2,49 @@ package config
 
 import (
 	"flag"
+	"strconv"
 	"time"
+
+	"github.com/caarlos0/env/v11"
 )
 
+type Seconds time.Duration
+
+func (s *Seconds) UnmarshalText(text []byte) error {
+	v, err := strconv.Atoi(string(text))
+	if err != nil {
+		return err
+	}
+	*s = Seconds(time.Duration(v) * time.Second)
+	return nil
+}
+func (s *Seconds) String() string {
+	return strconv.Itoa(int(time.Duration(*s) / time.Second))
+}
+
+func (s *Seconds) Set(val string) error {
+	return s.UnmarshalText([]byte(val))
+}
+
 type AgentConfig struct {
-	ServerAddress  string
-	ReportInterval time.Duration
-	PollInterval   time.Duration
+	ServerAddress  string  `env:"ADDRESS"`
+	ReportInterval Seconds `env:"REPORT_INTERVAL"`
+	PollInterval   Seconds `env:"POLL_INTERVAL"`
 }
 
 func NewAgentConfig() *AgentConfig {
-	addr := flag.String("a", "localhost:8080", "server address")
-	reportSec := flag.Int("r", 10, "report interval in seconds")
-	pollSec := flag.Int("p", 2, "poll interval in seconds")
+	cfg := &AgentConfig{
+		ReportInterval: Seconds(10 * time.Second),
+		PollInterval:   Seconds(2 * time.Second),
+	}
+
+	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")
+	flag.Var(&cfg.ReportInterval, "r", "report interval in seconds")
+	flag.Var(&cfg.PollInterval, "p", "poll interval in seconds")
 
 	flag.Parse()
 
-	return &AgentConfig{
-		ServerAddress:  *addr,
-		ReportInterval: time.Duration(*reportSec) * time.Second,
-		PollInterval:   time.Duration(*pollSec) * time.Second,
-	}
+	env.Parse(cfg)
+
+	return cfg
 }

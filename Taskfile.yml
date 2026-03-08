@@ -22,12 +22,12 @@ tasks:
   test:
     desc: Run all tests
     cmds:
-      - go test ./...
+      - go test -race ./...
 
   test-cover:
     desc: Run tests with coverage report
     cmds:
-      - go test ./... -coverprofile=coverage.out
+      - go test -race ./... -coverprofile=coverage.out
       - go tool cover -html=coverage.out
 
   fmt:
@@ -78,3 +78,38 @@ tasks:
     cmds:
       - chmod +x metricstest_v2-darwin-arm64
       - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration4$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080
+
+  autotest-5:
+    desc: Run iteration 5 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration5$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080
+
+  autotest-6:
+    desc: Run iteration 6 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration6$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080
+
+  autotest-7:
+    desc: Run iteration 7 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration7$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080
+
+  autotest-8:
+    desc: Run iteration 8 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration8$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080
+
+  autotest-9:
+    desc: Run iteration 9 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration9$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -file-storage-path=backup/metrics.json

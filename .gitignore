@@ -23,3 +23,7 @@ vendor/
 # IDEs directories
 .idea
 .vscode
+
+backup
+tmp
+logs

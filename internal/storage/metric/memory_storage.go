@@ -33,11 +33,11 @@ func (s *MetricMemoryStorage) GetGauge(name string) (float64, error) {
 	return v, nil
 }
 
-func (s *MetricMemoryStorage) UpdateGauge(name string, value float64) error {
+func (s *MetricMemoryStorage) UpdateGauge(name string, value float64) (float64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gauges[name] = value
-	return nil
+	return s.gauges[name], nil
 }
 
 func (s *MetricMemoryStorage) GetCounter(name string) (int64, error) {
@@ -50,25 +50,29 @@ func (s *MetricMemoryStorage) GetCounter(name string) (int64, error) {
 	return v, nil
 }
 
-func (s *MetricMemoryStorage) UpdateCounter(name string, value int64) error {
+func (s *MetricMemoryStorage) UpdateCounter(name string, value int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counters[name] += value
-	return nil
+	return s.counters[name], nil
 }
 
 func (s *MetricMemoryStorage) GetAllGauges() (map[string]float64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	copyMap := make(map[string]float64, len(s.gauges))
-	maps.Copy(copyMap, s.gauges)
-	return copyMap, nil
+	return maps.Clone(s.gauges), nil
 }
 
 func (s *MetricMemoryStorage) GetAllCounters() (map[string]int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	copyMap := make(map[string]int64, len(s.counters))
-	maps.Copy(copyMap, s.counters)
-	return copyMap, nil
+	return maps.Clone(s.counters), nil
+}
+
+func (s *MetricMemoryStorage) RestoreBatch(gauges map[string]float64, counters map[string]int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.counters = counters
+	s.gauges = gauges
+	return nil
 }

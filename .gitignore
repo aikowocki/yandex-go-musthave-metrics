@@ -24,6 +24,12 @@ vendor/
 .idea
 .vscode
 
+# Environment files
+.env
+deployments/.env
+
+# Data directories
 backup
 tmp
 logs
+postgres_data

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"time"
 
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config/db"
 	"github.com/caarlos0/env/v11"
 )
 
@@ -12,11 +13,13 @@ type ServerConfig struct {
 	StoreInterval   Seconds `env:"STORE_INTERVAL"`
 	FileStoragePath string  `env:"FILE_STORAGE_PATH"`
 	Restore         bool    `env:"RESTORE"`
+	DB              *db.Config
 }
 
 func NewServerConfig() *ServerConfig {
 	cfg := &ServerConfig{
 		StoreInterval: Seconds(300 * time.Second), // Флаг Var не принимает значение по умолчанию. инициируем тут
+		DB:            db.NewDBConfig(),
 	}
 
 	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/database"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/handler"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/middleware"
@@ -14,6 +15,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
 
@@ -22,8 +24,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer cleanup()
+
+	if err = godotenv.Load(); err != nil {
+		zap.S().Warnw("failed to load .env", "error", err)
+	}
 
 	cfg := config.NewServerConfig()
 
@@ -44,10 +49,16 @@ func main() {
 
 	svc := service.NewMetricService(repo)
 
-	h := handler.NewMetricHandler(svc)
-	r := setupRouter(h)
+	db, err := database.NewPostgresDB(cfg.DB.DatabaseDSN)
+	if err != nil {
+		zap.S().Error(err)
+	}
+	if db != nil {
+		defer db.Close()
+	}
 
-	log.Printf("Server starting on port: %s", cfg.ServerAddress)
+	r := setupRouter(handler.NewMetricHandler(svc), handler.NewHealthcheck(db))
+
 	zap.S().Infow(
 		"Server starting",
 		"address", cfg.ServerAddress,
@@ -59,7 +70,7 @@ func main() {
 	}
 }
 
-func setupRouter(h *handler.MetricHandler) *chi.Mux {
+func setupRouter(h *handler.MetricHandler, hc *handler.Healthcheck) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 	r.Use(middleware.WithLogging())
@@ -75,6 +86,7 @@ func setupRouter(h *handler.MetricHandler) *chi.Mux {
 	})
 
 	r.Get("/value/{type}/{name}", h.Get)
+	r.Get("/ping", hc.Ping)
 	r.Get("/", h.List)
 
 	return r

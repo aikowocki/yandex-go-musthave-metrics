@@ -26,6 +26,18 @@ tasks:
     cmds:
       - go test -race ./...
 
+  test-fresh:
+    desc: Run all tests without cache
+    cmds:
+      - go clean -testcache
+      - go test -race ./...
+
+  test-integration:
+    desc: Run integration tests (requires Docker)
+    cmds:
+      - go clean -testcache
+      - go test -race ./internal/storage/metric/... -v -integration
+
   test-cover:
     desc: Run tests with coverage report
     cmds:

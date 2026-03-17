@@ -126,9 +126,9 @@ func getDB(cfg config.ServerConfig) (*sql.DB, func()) {
 	return db, cleanup
 }
 
-func getStorage(ctx context.Context, db *sql.DB, cfg config.ServerConfig) metric.MetricStorage {
+func getStorage(ctx context.Context, db *sql.DB, cfg config.ServerConfig) metric.Storage {
 
-	var storage metric.MetricStorage
+	var storage metric.Storage
 
 	if db != nil {
 		storage = metric.NewMetricPostgresStorage(db)

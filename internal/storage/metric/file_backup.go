@@ -14,12 +14,12 @@ import (
 
 // FileBackup управляет переодическим сохранением метрик в файл
 type FileBackup struct {
-	path     string        // путь к файлу бэкапа
-	storage  MetricStorage // хранилище метрик
-	interval time.Duration // интервал автосохранения (0 = отключено)
+	path     string            // путь к файлу бэкапа
+	storage  BackupableStorage // хранилище метрик
+	interval time.Duration     // интервал автосохранения (0 = отключено)
 }
 
-func NewFileBackup(path string, storage MetricStorage, interval time.Duration) *FileBackup {
+func NewFileBackup(path string, storage BackupableStorage, interval time.Duration) *FileBackup {
 	return &FileBackup{
 		path:     path,
 		storage:  storage,
@@ -95,18 +95,27 @@ func (fb *FileBackup) Restore() error {
 
 }
 
-func (fb *FileBackup) Start() {
+func (fb *FileBackup) Start(ctx context.Context) {
 	if fb.interval > 0 {
 		go func() {
 			ticker := time.NewTicker(fb.interval)
 			defer ticker.Stop()
-			for range ticker.C {
-				err := fb.Save()
-				if err != nil {
-					zap.S().Errorf("backup save error: %v", err)
+			for {
+				select {
+				case <-ticker.C:
+					err := fb.Save()
+					if err != nil {
+						zap.S().Errorf("backup save error: %v", err)
+					}
+
+				case <-ctx.Done():
+					err := fb.Save()
+					if err != nil {
+						zap.S().Errorf("shotdown backup save error: %v", err)
+					}
+					return
 				}
 			}
 		}()
 	}
-
 }

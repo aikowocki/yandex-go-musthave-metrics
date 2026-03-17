@@ -2,13 +2,8 @@ package metric
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"sync"
-)
-
-var (
-	ErrNotFound = errors.New("not found in storage")
 )
 
 type MetricMemoryStorage struct {
@@ -17,7 +12,7 @@ type MetricMemoryStorage struct {
 	counters map[string]int64
 }
 
-func NewMetricMemoryStorage() MetricStorage {
+func NewMetricMemoryStorage() *MetricMemoryStorage {
 	return &MetricMemoryStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),

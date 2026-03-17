@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
@@ -20,11 +25,12 @@ import (
 )
 
 func main() {
-	cleanup, err := logger.New()
+	ctx, cancel := context.WithCancel(context.Background())
+	loggerCleanup, err := logger.New()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer cleanup()
+	defer loggerCleanup()
 
 	if err = godotenv.Load(); err != nil {
 		zap.S().Warnw("failed to load .env", "error", err)
@@ -32,30 +38,13 @@ func main() {
 
 	cfg := config.NewServerConfig()
 
-	stor := metric.NewMetricMemoryStorage()
+	db, dbCleanup := getDB(*cfg)
+	defer dbCleanup()
 
-	fileBackup := metric.NewFileBackup(cfg.FileStoragePath, stor, time.Duration(cfg.StoreInterval))
-
-	if cfg.Restore {
-		if err = fileBackup.Restore(); err != nil {
-			zap.S().Fatalw("failed to restore backup", "error", err)
-		}
-	}
-	fileBackup.Start()
-	if cfg.StoreInterval == 0 {
-		stor = metric.NewSyncBackupStorage(stor, fileBackup)
-	}
-	repo := repository.NewMetricRepository(stor)
+	storage := getStorage(ctx, db, *cfg)
+	repo := repository.NewMetricRepository(storage)
 
 	svc := service.NewMetricService(repo)
-
-	db, err := database.NewPostgresDB(cfg.DB.DatabaseDSN)
-	if err != nil {
-		zap.S().Error(err)
-	}
-	if db != nil {
-		defer db.Close()
-	}
 
 	r := setupRouter(handler.NewMetricHandler(svc), handler.NewHealthcheck(db))
 
@@ -64,10 +53,29 @@ func main() {
 		"address", cfg.ServerAddress,
 	)
 
-	if err := http.ListenAndServe(cfg.ServerAddress, r); err != nil {
-		zap.S().Fatalw(err.Error(), "event", "start server")
-
+	srv := &http.Server{
+		Addr:    cfg.ServerAddress,
+		Handler: r,
 	}
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			zap.S().Fatalw(err.Error(), "event", "start server")
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+	zap.S().Infow("shutting down...")
+	shutdownContext, shutdownСancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownСancel()
+	if err = srv.Shutdown(shutdownContext); err != nil {
+		zap.S().Fatalw(err.Error(), "event", "Shutdown server error")
+	}
+	cancel()
+	zap.S().Infow("server stopped")
 }
 
 func setupRouter(h *handler.MetricHandler, hc *handler.Healthcheck) *chi.Mux {
@@ -90,4 +98,61 @@ func setupRouter(h *handler.MetricHandler, hc *handler.Healthcheck) *chi.Mux {
 	r.Get("/", h.List)
 
 	return r
+}
+
+func getDB(cfg config.ServerConfig) (*sql.DB, func()) {
+	var db *sql.DB
+	var err error
+
+	if cfg.DB.DatabaseDSN != "" {
+		db, err = database.NewPostgresDB(cfg.DB.DatabaseDSN)
+		if err != nil {
+			zap.S().Error(err)
+		}
+		if db != nil {
+			if err := database.RunMigrations(db, "file://migrations"); err != nil {
+				zap.S().Fatalw("failed to run migrations", "error", err)
+			}
+		}
+
+	}
+
+	cleanup := func() {
+		if db != nil {
+			db.Close()
+		}
+	}
+
+	return db, cleanup
+}
+
+func getStorage(ctx context.Context, db *sql.DB, cfg config.ServerConfig) metric.MetricStorage {
+
+	var storage metric.MetricStorage
+
+	if db != nil {
+		storage = metric.NewMetricPostgresStorage(db)
+	} else {
+		memStorage := metric.NewMetricMemoryStorage()
+		storage = memStorage
+
+		if cfg.FileStoragePath != "" {
+
+			fileBackup := metric.NewFileBackup(cfg.FileStoragePath, memStorage, time.Duration(cfg.StoreInterval))
+
+			if cfg.Restore {
+				if err := fileBackup.Restore(); err != nil {
+					zap.S().Fatalw("failed to restore backup", "error", err)
+				}
+			}
+
+			fileBackup.Start(ctx)
+
+			if cfg.StoreInterval == 0 {
+				storage = metric.NewSyncBackupStorage(memStorage, fileBackup)
+			}
+
+		}
+	}
+	return storage
 }

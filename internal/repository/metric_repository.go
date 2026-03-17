@@ -12,10 +12,10 @@ import (
 var ErrUnknownType = errors.New("unknown metric type")
 
 type MetricRepository struct {
-	storage metric.MetricStorage
+	storage metric.Storage
 }
 
-func NewMetricRepository(storage metric.MetricStorage) *MetricRepository {
+func NewMetricRepository(storage metric.Storage) *MetricRepository {
 	return &MetricRepository{storage: storage}
 }
 

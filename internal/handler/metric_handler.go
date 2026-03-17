@@ -11,6 +11,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/service"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type MetricHandler struct {
@@ -127,6 +128,7 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 	metrics, err := h.service.GetAll(ctx)
 	if err != nil {
 		http.Error(w, "failed to get metrics", http.StatusInternalServerError)
+		zap.S().Errorw("failed to get metrics", zap.Error(err))
 		return
 	}
 

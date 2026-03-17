@@ -116,6 +116,20 @@ tasks:
       - chmod +x metricstest_v2-darwin-arm64
       - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration9$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -file-storage-path=backup/metrics.json
 
+  autotest-10:
+    desc: Run iteration 10 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration10[AB]*$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -database-dsn='{{.DATABASE_DSN}}'
+
+  autotest-11:
+    desc: Run iteration 11 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration11$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -database-dsn='{{.DATABASE_DSN}}'
+
   db-up:
     desc: "Запустить PostgreSQL контейнер"
     cmds:
@@ -140,10 +154,3 @@ tasks:
     desc: "Проверить статус PostgreSQL контейнера"
     cmds:
       - docker compose -f deployments/docker-compose.yml ps postgres
-
-  autotest-10:
-    desc: Run iteration 10 autotest
-    deps: [build-server, build-agent]
-    cmds:
-      - chmod +x metricstest_v2-darwin-arm64
-      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration10[AB]*$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -database-dsn='{{.DATABASE_DSN}}'

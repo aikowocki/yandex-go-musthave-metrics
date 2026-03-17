@@ -7,11 +7,11 @@ import (
 )
 
 type SyncBackupStorage struct {
-	storage MetricStorage
+	storage BackupableStorage
 	backup  *FileBackup
 }
 
-func NewSyncBackupStorage(storage MetricStorage, backup *FileBackup) MetricStorage {
+func NewSyncBackupStorage(storage BackupableStorage, backup *FileBackup) Storage {
 	return &SyncBackupStorage{
 		storage: storage,
 		backup:  backup,

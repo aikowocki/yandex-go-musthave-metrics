@@ -65,5 +65,5 @@ func TestPostgresStorage(t *testing.T) {
 	if !*integration {
 		t.Skip("skipping integration test, use -integration flag")
 	}
-	runStorageTests(t, NewMetricPostgresStorage(testDB))
+	runStorageTests(t, NewPostgresStorage(testDB))
 }

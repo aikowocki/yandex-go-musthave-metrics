@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"errors"
 	"strconv"
 )
@@ -24,6 +25,24 @@ type Metric interface {
 	ToDTO() MetricDTO
 }
 
+type MetricList []Metric
+
+func (metrics *MetricList) UnmarshalJSON(data []byte) error {
+	var dtos []MetricDTO
+	if err := json.Unmarshal(data, &dtos); err != nil {
+		return err
+	}
+
+	for _, dto := range dtos {
+		m, err := dto.ToMetric()
+		if err != nil {
+			return err
+		}
+		*metrics = append(*metrics, m)
+	}
+	return nil
+}
+
 type MetricDTO struct {
 	ID    string   `json:"id"`
 	MType string   `json:"type"`
@@ -32,21 +51,21 @@ type MetricDTO struct {
 	Hash  string   `json:"hash,omitempty"`
 }
 
-func (m *MetricDTO) ToMetric() (Metric, error) {
-	if m.ID == "" {
+func (dto *MetricDTO) ToMetric() (Metric, error) {
+	if dto.ID == "" {
 		return nil, ErrEmptyName
 	}
-	switch MetricType(m.MType) {
+	switch MetricType(dto.MType) {
 	case MetricTypeGauge:
-		if m.Value == nil {
+		if dto.Value == nil {
 			return nil, ErrInvalidValue
 		}
-		return NewGaugeMetric(m.ID, *m.Value), nil
+		return NewGaugeMetric(dto.ID, *dto.Value), nil
 	case MetricTypeCounter:
-		if m.Delta == nil {
+		if dto.Delta == nil {
 			return nil, ErrInvalidValue
 		}
-		return NewCounterMetric(m.ID, *m.Delta), nil
+		return NewCounterMetric(dto.ID, *dto.Delta), nil
 	default:
 		return nil, ErrInvalidType
 	}

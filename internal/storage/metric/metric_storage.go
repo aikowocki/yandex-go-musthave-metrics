@@ -14,6 +14,8 @@ type Storage interface {
 
 	GetAllGauges(ctx context.Context) (map[string]float64, error)
 	GetAllCounters(ctx context.Context) (map[string]int64, error)
+
+	UpdateBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error
 }
 
 var (

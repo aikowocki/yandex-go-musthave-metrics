@@ -90,6 +90,7 @@ func setupRouter(h *handler.MetricHandler, hc *handler.Healthcheck) *chi.Mux {
 	r.Group(func(r chi.Router) {
 		r.Use(chimw.AllowContentType("application/json"))
 		r.Post("/update", h.UpdateJSON)
+		r.Post("/updates", h.BatchUpdate)
 		r.Post("/value", h.GetJSON)
 	})
 
@@ -131,9 +132,9 @@ func getStorage(ctx context.Context, db *sql.DB, cfg config.ServerConfig) metric
 	var storage metric.Storage
 
 	if db != nil {
-		storage = metric.NewMetricPostgresStorage(db)
+		storage = metric.NewPostgresStorage(db)
 	} else {
-		memStorage := metric.NewMetricMemoryStorage()
+		memStorage := metric.NewMemoryStorage()
 		storage = memStorage
 
 		if cfg.FileStoragePath != "" {

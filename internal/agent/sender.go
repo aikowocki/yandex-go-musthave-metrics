@@ -102,6 +102,34 @@ func ReportJSON(storage MetricStorage, client *Client) {
 	}
 }
 
+func ReportBatch(storage MetricStorage, client *Client) {
+	fmt.Println("Reporting metrics to server...")
+	var metrics []model.MetricDTO
+	for name, value := range storage.SnapshotGauges() {
+		v := value
+		metrics = append(metrics, model.MetricDTO{
+			ID:    name,
+			MType: string(model.MetricTypeGauge),
+			Value: &v,
+		})
+	}
+
+	for name, value := range storage.SnapshotCounters() {
+		v := value
+		metrics = append(metrics, model.MetricDTO{
+			ID:    name,
+			MType: string(model.MetricTypeCounter),
+			Delta: &v,
+		})
+	}
+
+	if len(metrics) > 0 {
+		if err := client.SendMetrics(metrics); err != nil {
+			fmt.Printf("Failed to send metrics: %v\n", err)
+		}
+	}
+}
+
 // Deprecated: use SendMetricJSON
 func (c *Client) SendMetric(metricType model.MetricType, name, value string) error {
 	url := fmt.Sprintf("%s/update/%s/%s/%s", c.serverURL, metricType, name, value)
@@ -124,6 +152,21 @@ func (c *Client) SendMetricJSON(dto model.MetricDTO) error {
 	resp, err := c.restyClient.R().SetBody(dto).Post(url)
 	if err != nil {
 		return fmt.Errorf("failed to send metric: %w", err)
+	}
+
+	if resp.StatusCode() != 200 {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
+	}
+
+	return nil
+}
+
+func (c *Client) SendMetrics(dtos []model.MetricDTO) error {
+	url := fmt.Sprintf("%s/updates", c.serverURL)
+
+	resp, err := c.restyClient.R().SetBody(dtos).Post(url)
+	if err != nil {
+		return fmt.Errorf("failed to send metrics: %w", err)
 	}
 
 	if resp.StatusCode() != 200 {

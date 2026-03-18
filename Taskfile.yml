@@ -142,6 +142,13 @@ tasks:
       - chmod +x metricstest_v2-darwin-arm64
       - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration11$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -database-dsn='{{.DATABASE_DSN}}'
 
+  autotest-12:
+    desc: Run iteration 12 autotest
+    deps: [build-server, build-agent]
+    cmds:
+      - chmod +x metricstest_v2-darwin-arm64
+      - ./metricstest_v2-darwin-arm64 -test.v -test.run=^TestIteration12$ -binary-path=cmd/server/server -agent-binary-path=cmd/agent/agent -source-path=. -server-port=8080 -database-dsn='{{.DATABASE_DSN}}'
+
   db-up:
     desc: "Запустить PostgreSQL контейнер"
     cmds:

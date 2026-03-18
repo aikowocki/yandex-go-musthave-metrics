@@ -51,6 +51,42 @@ func runStorageTests(t *testing.T, storage Storage) {
 		assert.ErrorIs(t, err, ErrNotFound)
 	})
 
+	t.Run("UpdateBatch", func(t *testing.T) {
+		// первый батч — mixed gauges и counters
+		err := storage.UpdateBatch(ctx,
+			map[string]float64{"batch_cpu": 1.5, "batch_mem": 256.0},
+			map[string]int64{"batch_hits": 10},
+		)
+		assert.NoError(t, err)
+
+		v, err := storage.GetGauge(ctx, "batch_cpu")
+		assert.NoError(t, err)
+		assert.Equal(t, 1.5, v)
+
+		c, err := storage.GetCounter(ctx, "batch_hits")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(10), c)
+
+		// второй батч — gauge upsert, counter накапливается
+		err = storage.UpdateBatch(ctx,
+			map[string]float64{"batch_cpu": 9.9},
+			map[string]int64{"batch_hits": 5},
+		)
+		assert.NoError(t, err)
+
+		v, err = storage.GetGauge(ctx, "batch_cpu")
+		assert.NoError(t, err)
+		assert.Equal(t, 9.9, v)
+
+		c, err = storage.GetCounter(ctx, "batch_hits")
+		assert.NoError(t, err)
+		assert.Equal(t, int64(15), c)
+
+		// пустой батч не ломает ничего
+		err = storage.UpdateBatch(ctx, nil, nil)
+		assert.NoError(t, err)
+	})
+
 	t.Run("GetAll", func(t *testing.T) {
 		storage.UpdateGauge(ctx, "memory", 128.0)
 		storage.UpdateCounter(ctx, "hits", 3)

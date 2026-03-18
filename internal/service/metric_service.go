@@ -11,6 +11,7 @@ type MetricService interface {
 	Update(ctx context.Context, metric model.Metric) (model.Metric, error)
 	Get(ctx context.Context, metricType, name string) (model.Metric, error)
 	GetAll(ctx context.Context) ([]model.Metric, error)
+	UpdateBatch(ctx context.Context, metrics model.MetricList) error
 }
 
 type metricService struct {
@@ -31,4 +32,8 @@ func (s *metricService) Get(ctx context.Context, metricType, name string) (model
 
 func (s *metricService) GetAll(ctx context.Context) ([]model.Metric, error) {
 	return s.repo.GetAll(ctx)
+}
+
+func (s *metricService) UpdateBatch(ctx context.Context, metrics model.MetricList) error {
+	return s.repo.SaveBatch(ctx, metrics)
 }

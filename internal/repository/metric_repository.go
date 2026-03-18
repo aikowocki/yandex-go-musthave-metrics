@@ -81,6 +81,23 @@ func (r *MetricRepository) Save(ctx context.Context, m model.Metric) (model.Metr
 		return model.NewGaugeMetric(m.GetName(), newVal), nil
 
 	default:
-		return nil, ErrUnknownType
+		return nil, fmt.Errorf("unknown metric type %T: %w", m, ErrUnknownType)
 	}
+}
+
+func (r *MetricRepository) SaveBatch(ctx context.Context, metrics model.MetricList) error {
+	gauges := make(map[string]float64)
+	counters := make(map[string]int64)
+
+	for _, m := range metrics {
+		switch m := m.(type) {
+		case *model.CounterMetric:
+			counters[m.GetName()] += m.GetValue()
+		case *model.GaugeMetric:
+			gauges[m.GetName()] = m.GetValue()
+		default:
+			return fmt.Errorf("unknown metric type %T: %w", m, ErrUnknownType)
+		}
+	}
+	return r.storage.UpdateBatch(ctx, gauges, counters)
 }

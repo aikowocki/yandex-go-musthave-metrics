@@ -133,7 +133,7 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<html><body><h1>Metrics</h1><ul>")
+	fmt.Fprintf(w, "<html><body><h1>MetricList</h1><ul>")
 	for _, m := range metrics {
 		switch m := m.(type) {
 		case *model.GaugeMetric:
@@ -143,4 +143,29 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Fprintf(w, "</ul></body></html>")
+}
+
+func (h *MetricHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var metrics model.MetricList
+
+	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+		if errors.As(err, new(*json.SyntaxError)) {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		// иначе это ошибка валидации
+		h.handleUpdateError(err, w)
+		return
+	}
+
+	if len(metrics) > 0 {
+		if err := h.service.UpdateBatch(ctx, metrics); err != nil {
+			h.handleUpdateError(err, w)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

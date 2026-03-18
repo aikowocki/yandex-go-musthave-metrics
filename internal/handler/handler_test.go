@@ -57,7 +57,7 @@ func TestHandler_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stor := metric.NewMetricMemoryStorage()
+			stor := metric.NewMemoryStorage()
 			repo := repository.NewMetricRepository(stor)
 			svc := service.NewMetricService(repo)
 			handler := NewMetricHandler(svc)
@@ -113,7 +113,7 @@ func TestHandler_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stor := metric.NewMetricMemoryStorage()
+			stor := metric.NewMemoryStorage()
 			repo := repository.NewMetricRepository(stor)
 			svc := service.NewMetricService(repo)
 			handler := NewMetricHandler(svc)
@@ -139,7 +139,7 @@ func TestHandler_Get(t *testing.T) {
 }
 
 func TestHandler_List(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := repository.NewMetricRepository(stor)
 	svc := service.NewMetricService(repo)
 	handler := NewMetricHandler(svc)
@@ -219,7 +219,7 @@ func TestHandler_UpdateJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stor := metric.NewMetricMemoryStorage()
+			stor := metric.NewMemoryStorage()
 			repo := repository.NewMetricRepository(stor)
 			svc := service.NewMetricService(repo)
 			h := NewMetricHandler(svc)
@@ -242,7 +242,7 @@ func TestHandler_UpdateJSON(t *testing.T) {
 }
 
 func TestHandler_UpdateJSON_ResponseBody(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := repository.NewMetricRepository(stor)
 	svc := service.NewMetricService(repo)
 	h := NewMetricHandler(svc)
@@ -268,7 +268,7 @@ func TestHandler_UpdateJSON_ResponseBody(t *testing.T) {
 }
 
 func TestHandler_UpdateJSON_CounterSum(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := repository.NewMetricRepository(stor)
 	svc := service.NewMetricService(repo)
 	h := NewMetricHandler(svc)
@@ -343,7 +343,7 @@ func TestHandler_GetJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stor := metric.NewMetricMemoryStorage()
+			stor := metric.NewMemoryStorage()
 			repo := repository.NewMetricRepository(stor)
 			svc := service.NewMetricService(repo)
 			h := NewMetricHandler(svc)
@@ -368,7 +368,7 @@ func TestHandler_GetJSON(t *testing.T) {
 }
 
 func TestHandler_GetJSON_ResponseBody(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := repository.NewMetricRepository(stor)
 	svc := service.NewMetricService(repo)
 	h := NewMetricHandler(svc)
@@ -393,4 +393,91 @@ func TestHandler_GetJSON_ResponseBody(t *testing.T) {
 	assert.Equal(t, "gauge", resp.MType)
 	assert.NotNil(t, resp.Value)
 	assert.Equal(t, 42.5, *resp.Value)
+}
+
+func TestHandler_BatchUpdate(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           string
+		wantStatusCode int
+	}{
+		{
+			name:           "success mixed batch",
+			body:           `[{"id":"cpu","type":"gauge","value":3.14},{"id":"hits","type":"counter","delta":5}]`,
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name:           "empty batch",
+			body:           `[]`,
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name:           "invalid json",
+			body:           `{broken`,
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:           "unknown metric type",
+			body:           `[{"id":"test","type":"unknown","value":1.0}]`,
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:           "gauge without value",
+			body:           `[{"id":"cpu","type":"gauge"}]`,
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			name:           "counter without delta",
+			body:           `[{"id":"hits","type":"counter"}]`,
+			wantStatusCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stor := metric.NewMemoryStorage()
+			repo := repository.NewMetricRepository(stor)
+			svc := service.NewMetricService(repo)
+			h := NewMetricHandler(svc)
+
+			r := chi.NewRouter()
+			r.Post("/updates", h.BatchUpdate)
+
+			req := httptest.NewRequest("POST", "/updates", strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			r.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantStatusCode, w.Code)
+		})
+	}
+}
+
+func TestHandler_BatchUpdate_CounterAccumulates(t *testing.T) {
+	stor := metric.NewMemoryStorage()
+	repo := repository.NewMetricRepository(stor)
+	svc := service.NewMetricService(repo)
+	h := NewMetricHandler(svc)
+
+	r := chi.NewRouter()
+	r.Post("/updates", h.BatchUpdate)
+
+	// первый батч
+	req := httptest.NewRequest("POST", "/updates", strings.NewReader(`[{"id":"hits","type":"counter","delta":10}]`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	// второй батч
+	req = httptest.NewRequest("POST", "/updates", strings.NewReader(`[{"id":"hits","type":"counter","delta":5}]`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	ctx := context.Background()
+	m, err := repo.Get(ctx, "counter", "hits")
+	assert.NoError(t, err)
+	assert.Equal(t, int64(15), m.(*model.CounterMetric).GetValue())
 }

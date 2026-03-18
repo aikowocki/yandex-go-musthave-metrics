@@ -10,7 +10,7 @@ import (
 )
 
 func TestRepository_Save(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -26,7 +26,7 @@ func TestRepository_Save(t *testing.T) {
 }
 
 func TestRepository_CounterSum(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -41,7 +41,7 @@ func TestRepository_CounterSum(t *testing.T) {
 }
 
 func TestRepository_GetAll(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -86,7 +86,7 @@ func TestRepository_GetAll(t *testing.T) {
 }
 
 func TestRepository_GetAll_Empty(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -97,7 +97,7 @@ func TestRepository_GetAll_Empty(t *testing.T) {
 }
 
 func TestRepository_Get_NotFound(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -108,7 +108,7 @@ func TestRepository_Get_NotFound(t *testing.T) {
 }
 
 func TestRepository_Get_InvalidType(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -119,7 +119,7 @@ func TestRepository_Get_InvalidType(t *testing.T) {
 }
 
 func TestRepository_Save_ReturnsUpdatedValue(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 
@@ -140,7 +140,7 @@ func TestRepository_Save_ReturnsUpdatedValue(t *testing.T) {
 }
 
 func TestRepository_Save_DoesNotMutateInput(t *testing.T) {
-	stor := metric.NewMetricMemoryStorage()
+	stor := metric.NewMemoryStorage()
 	repo := NewMetricRepository(stor)
 	ctx := context.Background()
 

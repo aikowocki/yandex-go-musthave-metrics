@@ -38,7 +38,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				agent.ReportJSON(storage, client)
+				agent.ReportBatch(storage, client)
 			case <-ctx.Done():
 				return
 			}
@@ -48,5 +48,5 @@ func main() {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	<-sigCh
 	cancel()
-	agent.ReportJSON(storage, client)
+	agent.ReportBatch(storage, client)
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -60,7 +61,7 @@ func main() {
 
 	go func() {
 		err := srv.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			zap.S().Fatalw(err.Error(), "event", "start server")
 		}
 	}()

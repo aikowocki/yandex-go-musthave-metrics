@@ -86,8 +86,16 @@ func (fb *FileBackup) Restore() error {
 	for _, dto := range dtos {
 		switch model.MetricType(dto.MType) {
 		case model.MetricTypeGauge:
+			if dto.Value == nil {
+				zap.S().Warnw("skipping gauge with nil value", "id", dto.ID)
+				continue
+			}
 			gauges[dto.ID] = *dto.Value
 		case model.MetricTypeCounter:
+			if dto.Delta == nil {
+				zap.S().Warnw("skipping counter with nil delta", "id", dto.ID)
+				continue
+			}
 			counters[dto.ID] = *dto.Delta
 		}
 	}
@@ -105,13 +113,14 @@ func (fb *FileBackup) Start(ctx context.Context) {
 				case <-ticker.C:
 					err := fb.Save()
 					if err != nil {
-						zap.S().Errorf("backup save error: %v", err)
+						zap.S().Errorw("backup save error", zap.Error(err))
+
 					}
 
 				case <-ctx.Done():
 					err := fb.Save()
 					if err != nil {
-						zap.S().Errorf("shotdown backup save error: %v", err)
+						zap.S().Errorw("shutdown backup save error", zap.Error(err))
 					}
 					return
 				}

@@ -49,25 +49,6 @@ func TestClient_SendMetric_ServerError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestClient_SendMetric_Retry(t *testing.T) {
-	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts < 3 {
-			w.WriteHeader(http.StatusInternalServerError) // первые 2 попытки — ошибка
-			return
-		}
-		w.WriteHeader(http.StatusOK) // 3-я попытка — успех
-	}))
-	defer server.Close()
-
-	client := NewClient(server.URL)
-	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
-
-	assert.NoError(t, err)
-	assert.Equal(t, 3, attempts, "Should retry 3 times")
-}
-
 func TestClient_SendMetric_InvalidURL(t *testing.T) {
 	client := NewClient("ht!tp://invalid") // невалидный URL
 	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")

@@ -4,7 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"net"
 
+	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 )
@@ -24,7 +28,7 @@ func (s *PostgresStorage) GetGauge(ctx context.Context, name string) (float64, e
 
 	err := s.db.QueryRowContext(ctx, q, name).Scan(&value)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrNotFound
 	}
 
@@ -118,26 +122,30 @@ func (s *PostgresStorage) GetAllCounters(ctx context.Context) (map[string]int64,
 }
 
 func (s *PostgresStorage) UpdateBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-			zap.S().Warnw("failed to rollback transaction", "error", err)
+	operation := func() error {
+		tx, err := s.db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
 		}
-	}()
 
-	if err := insertGaugesBatch(ctx, tx, gauges); err != nil {
-		return err
+		defer func() {
+			if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+				zap.S().Warnw("failed to rollback transaction", "error", err)
+			}
+		}()
+
+		if err := insertGaugesBatch(ctx, tx, gauges); err != nil {
+			return err
+		}
+
+		if err := insertCountersBatch(ctx, tx, counters); err != nil {
+			return err
+		}
+
+		return tx.Commit()
 	}
 
-	if err := insertCountersBatch(ctx, tx, counters); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return retry.Do(ctx, operation, retry.WithRetryIf(isPgConnectionError))
 }
 
 func insertBatch[T float64 | int64](ctx context.Context, tx *sql.Tx, data map[string]T, query string) error {
@@ -176,4 +184,13 @@ func insertGaugesBatch(ctx context.Context, tx *sql.Tx, gauges map[string]float6
 		ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value
 	`
 	return insertBatch(ctx, tx, gauges, query)
+}
+
+func isPgConnectionError(err error) bool {
+	var pgErr *pgconn.PgError
+	var netErr *net.OpError
+	if errors.As(err, &pgErr) {
+		return pgerrcode.IsConnectionException(pgErr.Code) // весь класс 08
+	}
+	return errors.As(err, &netErr)
 }

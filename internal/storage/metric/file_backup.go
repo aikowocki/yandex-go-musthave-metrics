@@ -1,6 +1,7 @@
 package metric
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -11,13 +12,14 @@ import (
 	"go.uber.org/zap"
 )
 
+// FileBackup управляет переодическим сохранением метрик в файл
 type FileBackup struct {
-	path     string
-	storage  MetricStorage
-	interval time.Duration
+	path     string            // путь к файлу бэкапа
+	storage  BackupableStorage // хранилище метрик
+	interval time.Duration     // интервал автосохранения (0 = отключено)
 }
 
-func NewFileBackup(path string, storage MetricStorage, interval time.Duration) *FileBackup {
+func NewFileBackup(path string, storage BackupableStorage, interval time.Duration) *FileBackup {
 	return &FileBackup{
 		path:     path,
 		storage:  storage,
@@ -26,11 +28,12 @@ func NewFileBackup(path string, storage MetricStorage, interval time.Duration) *
 }
 
 func (fb *FileBackup) Save() error {
-	counters, err := fb.storage.GetAllCounters()
+	ctx := context.Background()
+	counters, err := fb.storage.GetAllCounters(ctx)
 	if err != nil {
 		return err
 	}
-	gauges, err := fb.storage.GetAllGauges()
+	gauges, err := fb.storage.GetAllGauges(ctx)
 	if err != nil {
 		return err
 	}
@@ -62,7 +65,7 @@ func (fb *FileBackup) Save() error {
 }
 
 func (fb *FileBackup) Restore() error {
-
+	ctx := context.Background()
 	data, err := os.ReadFile(fb.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -83,27 +86,45 @@ func (fb *FileBackup) Restore() error {
 	for _, dto := range dtos {
 		switch model.MetricType(dto.MType) {
 		case model.MetricTypeGauge:
+			if dto.Value == nil {
+				zap.S().Warnw("skipping gauge with nil value", "id", dto.ID)
+				continue
+			}
 			gauges[dto.ID] = *dto.Value
 		case model.MetricTypeCounter:
+			if dto.Delta == nil {
+				zap.S().Warnw("skipping counter with nil delta", "id", dto.ID)
+				continue
+			}
 			counters[dto.ID] = *dto.Delta
 		}
 	}
-	return fb.storage.RestoreBatch(gauges, counters)
+	return fb.storage.RestoreBatch(ctx, gauges, counters)
 
 }
 
-func (fb *FileBackup) Start() {
+func (fb *FileBackup) Start(ctx context.Context) {
 	if fb.interval > 0 {
 		go func() {
 			ticker := time.NewTicker(fb.interval)
 			defer ticker.Stop()
-			for range ticker.C {
-				err := fb.Save()
-				if err != nil {
-					zap.S().Errorf("backup save error: %v", err)
+			for {
+				select {
+				case <-ticker.C:
+					err := fb.Save()
+					if err != nil {
+						zap.S().Errorw("backup save error", zap.Error(err))
+
+					}
+
+				case <-ctx.Done():
+					err := fb.Save()
+					if err != nil {
+						zap.S().Errorw("shutdown backup save error", zap.Error(err))
+					}
+					return
 				}
 			}
 		}()
 	}
-
 }

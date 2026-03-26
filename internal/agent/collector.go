@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"runtime"
+
+	"go.uber.org/zap"
 )
 
 func getRuntimeMetrics() map[string]any {
@@ -40,7 +42,7 @@ func getRuntimeMetrics() map[string]any {
 	}
 }
 func CollectMetrics(storage MetricStorage) {
-	fmt.Println("Collecting metrics...")
+	zap.S().Debugw("collecting metrics")
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
@@ -53,7 +55,7 @@ func CollectMetrics(storage MetricStorage) {
 		case float64:
 			storage.SetGauge(name, v)
 		default:
-			fmt.Printf("Warning: unknown metric type %T for %s\n", value, name)
+			zap.S().Warnw("unknown metric type", "type", fmt.Sprintf("%T", value), "name", name)
 		}
 	}
 	storage.AddCounter("PollCount", 1)

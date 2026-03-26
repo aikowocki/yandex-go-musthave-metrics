@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
@@ -8,6 +12,8 @@ import (
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	cfg := config.NewAgentConfig()
 	storage := agent.NewLocalStorage()
 	client := agent.NewClient("http://" + cfg.ServerAddress)
@@ -16,18 +22,31 @@ func main() {
 	go func() {
 		pollTicker := time.NewTicker(time.Duration(cfg.PollInterval))
 		defer pollTicker.Stop()
-		for range pollTicker.C {
-			agent.CollectMetrics(storage)
+		for {
+			select {
+			case <-pollTicker.C:
+				agent.CollectMetrics(storage)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 	// Горутина для отправки метрик
 	go func() {
 		ticker := time.NewTicker(time.Duration(cfg.ReportInterval))
 		defer ticker.Stop()
-		for range ticker.C {
-			agent.ReportJSON(storage, client)
+		for {
+			select {
+			case <-ticker.C:
+				agent.ReportBatch(storage, client)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
-	// Блокируем main, что бы программа не завершилась
-	select {}
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	<-sigCh
+	cancel()
+	agent.ReportBatch(storage, client)
 }

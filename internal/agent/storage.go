@@ -11,6 +11,7 @@ type MetricStorage interface {
 	AddCounter(name string, value int64)
 	GetCounter(name string) (int64, bool)
 	ForEachGauge(fn func(name string, value float64))
+	SnapshotGauges() map[string]float64
 	SnapshotCounters() map[string]int64
 }
 
@@ -61,7 +62,14 @@ func (m *LocalMetrics) ForEachGauge(fn func(name string, value float64)) {
 	}
 }
 
-// SnapshotCounters возвращает копию счетчиков и поcле очищает их
+// SnapshotCounters возвращает копию gauges
+func (m *LocalMetrics) SnapshotGauges() map[string]float64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return maps.Clone(m.gauges)
+}
+
+// SnapshotCounters возвращает копию counters и поcле очищает их
 func (m *LocalMetrics) SnapshotCounters() map[string]int64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()

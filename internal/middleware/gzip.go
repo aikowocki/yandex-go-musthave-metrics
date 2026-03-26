@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
+	"go.uber.org/zap"
 )
 
 const EncodingGzip = "gzip"
@@ -36,9 +37,7 @@ func (c *compressWriter) Write(p []byte) (int, error) {
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
-	if statusCode < 300 {
-		c.w.Header().Set(constants.HeaderContentEncoding, EncodingGzip)
-	}
+	c.w.Header().Set(constants.HeaderContentEncoding, EncodingGzip)
 	c.w.WriteHeader(statusCode)
 }
 
@@ -94,7 +93,9 @@ func WithGzipCompression() func(http.Handler) http.Handler {
 				ow = cw
 				// не забываем отправить клиенту все сжатые данные после завершения middleware
 				defer func() {
-					_ = cw.Close()
+					if err := cw.Close(); err != nil {
+						zap.S().Warnw("failed to close gzip writer", zap.Error(err))
+					}
 				}()
 			}
 
@@ -111,7 +112,9 @@ func WithGzipCompression() func(http.Handler) http.Handler {
 				// меняем тело запроса на новое
 				r.Body = cr
 				defer func() {
-					_ = cr.Close()
+					if err := cr.Close(); err != nil {
+						zap.S().Warnw("failed to close gzip reader", zap.Error(err))
+					}
 				}()
 			}
 

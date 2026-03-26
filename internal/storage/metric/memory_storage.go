@@ -1,29 +1,25 @@
 package metric
 
 import (
-	"errors"
+	"context"
 	"maps"
 	"sync"
 )
 
-var (
-	ErrNotFound = errors.New("not found in storage")
-)
-
-type MetricMemoryStorage struct {
+type MemoryStorage struct {
 	mu       sync.RWMutex
 	gauges   map[string]float64
 	counters map[string]int64
 }
 
-func NewMetricMemoryStorage() MetricStorage {
-	return &MetricMemoryStorage{
+func NewMemoryStorage() *MemoryStorage {
+	return &MemoryStorage{
 		gauges:   make(map[string]float64),
 		counters: make(map[string]int64),
 	}
 }
 
-func (s *MetricMemoryStorage) GetGauge(name string) (float64, error) {
+func (s *MemoryStorage) GetGauge(ctx context.Context, name string) (float64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	v, ok := s.gauges[name]
@@ -33,14 +29,14 @@ func (s *MetricMemoryStorage) GetGauge(name string) (float64, error) {
 	return v, nil
 }
 
-func (s *MetricMemoryStorage) UpdateGauge(name string, value float64) (float64, error) {
+func (s *MemoryStorage) UpdateGauge(ctx context.Context, name string, value float64) (float64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.gauges[name] = value
 	return s.gauges[name], nil
 }
 
-func (s *MetricMemoryStorage) GetCounter(name string) (int64, error) {
+func (s *MemoryStorage) GetCounter(ctx context.Context, name string) (int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	v, ok := s.counters[name]
@@ -50,29 +46,43 @@ func (s *MetricMemoryStorage) GetCounter(name string) (int64, error) {
 	return v, nil
 }
 
-func (s *MetricMemoryStorage) UpdateCounter(name string, value int64) (int64, error) {
+func (s *MemoryStorage) UpdateCounter(ctx context.Context, name string, value int64) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counters[name] += value
 	return s.counters[name], nil
 }
 
-func (s *MetricMemoryStorage) GetAllGauges() (map[string]float64, error) {
+func (s *MemoryStorage) GetAllGauges(ctx context.Context) (map[string]float64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.gauges), nil
 }
 
-func (s *MetricMemoryStorage) GetAllCounters() (map[string]int64, error) {
+func (s *MemoryStorage) GetAllCounters(ctx context.Context) (map[string]int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.counters), nil
 }
 
-func (s *MetricMemoryStorage) RestoreBatch(gauges map[string]float64, counters map[string]int64) error {
+func (s *MemoryStorage) RestoreBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.counters = counters
 	s.gauges = gauges
+	return nil
+}
+
+func (s *MemoryStorage) UpdateBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(gauges) > 0 {
+		maps.Copy(s.gauges, gauges)
+	}
+
+	for name, value := range counters {
+		s.counters[name] += value
+	}
 	return nil
 }

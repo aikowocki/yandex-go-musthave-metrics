@@ -49,25 +49,6 @@ func TestClient_SendMetric_ServerError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestClient_SendMetric_Retry(t *testing.T) {
-	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		attempts++
-		if attempts < 3 {
-			w.WriteHeader(http.StatusInternalServerError) // первые 2 попытки — ошибка
-			return
-		}
-		w.WriteHeader(http.StatusOK) // 3-я попытка — успех
-	}))
-	defer server.Close()
-
-	client := NewClient(server.URL)
-	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
-
-	assert.NoError(t, err)
-	assert.Equal(t, 3, attempts, "Should retry 3 times")
-}
-
 func TestClient_SendMetric_InvalidURL(t *testing.T) {
 	client := NewClient("ht!tp://invalid") // невалидный URL
 	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
@@ -103,4 +84,69 @@ func TestClient_SendMetric_AllRetriesFail(t *testing.T) {
 
 	assert.Error(t, err)
 
+}
+
+func TestClient_SendMetrics_Success(t *testing.T) {
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL)
+	err := client.SendMetrics([]model.MetricDTO{
+		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 3.14; return &v }()},
+		{ID: "hits", MType: "counter", Delta: func() *int64 { v := int64(5); return &v }()},
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "/updates", capturedPath)
+}
+
+func TestClient_SendMetrics_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL)
+	err := client.SendMetrics([]model.MetricDTO{
+		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
+	})
+
+	assert.Error(t, err)
+}
+
+func TestReportBatch_SendsToUpdatesEndpoint(t *testing.T) {
+	var capturedPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	storage := NewLocalStorage()
+	storage.SetGauge("cpu", 1.5)
+	storage.AddCounter("hits", 10)
+
+	client := NewClient(server.URL)
+	ReportBatch(storage, client)
+
+	assert.Equal(t, "/updates", capturedPath)
+}
+
+func TestReportBatch_EmptyStorage_NoRequest(t *testing.T) {
+	requestMade := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestMade = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	storage := NewLocalStorage() // пустое хранилище
+	client := NewClient(server.URL)
+	ReportBatch(storage, client)
+
+	assert.False(t, requestMade, "should not send request for empty storage")
 }

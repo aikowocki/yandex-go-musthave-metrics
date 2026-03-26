@@ -11,6 +11,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/service"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
 
 type MetricHandler struct {
@@ -32,7 +33,8 @@ func (h *MetricHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.service.Update(m); err != nil {
+	ctx := r.Context()
+	if _, err := h.service.Update(ctx, m); err != nil {
 		h.handleUpdateError(err, w)
 		return
 	}
@@ -52,7 +54,8 @@ func (h *MetricHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if m, err = h.service.Update(m); err != nil {
+	ctx := r.Context()
+	if m, err = h.service.Update(ctx, m); err != nil {
 		h.handleUpdateError(err, w)
 		return
 	}
@@ -74,7 +77,8 @@ func (h *MetricHandler) handleUpdateError(err error, w http.ResponseWriter) {
 }
 
 func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
-	m, err := h.service.Get(chi.URLParam(r, "type"), chi.URLParam(r, "name"))
+	ctx := r.Context()
+	m, err := h.service.Get(ctx, chi.URLParam(r, "type"), chi.URLParam(r, "name"))
 	if err != nil {
 		if errors.Is(err, metric.ErrNotFound) {
 			http.Error(w, "metric not found", http.StatusNotFound)
@@ -99,7 +103,8 @@ func (h *MetricHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	m, err := h.service.Get(mr.MType, mr.ID)
+	ctx := r.Context()
+	m, err := h.service.Get(ctx, mr.MType, mr.ID)
 	if err != nil {
 		h.handleGetError(err, w)
 		return
@@ -119,14 +124,16 @@ func (h *MetricHandler) handleGetError(err error, w http.ResponseWriter) {
 }
 
 func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
-	metrics, err := h.service.GetAll()
+	ctx := r.Context()
+	metrics, err := h.service.GetAll(ctx)
 	if err != nil {
 		http.Error(w, "failed to get metrics", http.StatusInternalServerError)
+		zap.S().Errorw("failed to get metrics", zap.Error(err))
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<html><body><h1>Metrics</h1><ul>")
+	fmt.Fprintf(w, "<html><body><h1>MetricList</h1><ul>")
 	for _, m := range metrics {
 		switch m := m.(type) {
 		case *model.GaugeMetric:
@@ -136,4 +143,29 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Fprintf(w, "</ul></body></html>")
+}
+
+func (h *MetricHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var metrics model.MetricList
+
+	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
+		if errors.As(err, new(*json.SyntaxError)) {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+		// иначе это ошибка валидации
+		h.handleUpdateError(err, w)
+		return
+	}
+
+	if len(metrics) > 0 {
+		if err := h.service.UpdateBatch(ctx, metrics); err != nil {
+			h.handleUpdateError(err, w)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 )
@@ -159,7 +158,7 @@ func pgxInsertBatch[T float64 | int64](ctx context.Context, tx pgx.Tx, data map[
 		values = append(values, value)
 	}
 
-	_, err := tx.Exec(ctx, query, pgtype.FlatArray[string](names), pgtype.FlatArray[T](values))
+	_, err := tx.Exec(ctx, query, names, values)
 	if err != nil {
 		return err
 	}

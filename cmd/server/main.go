@@ -21,6 +21,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/storage/metric"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 )
@@ -38,16 +39,27 @@ func main() {
 	}
 
 	cfg := config.NewServerConfig()
+	var pool *pgxpool.Pool
+	var db *sql.DB
+	var dbCleanup func()
+	var dbHealhcheckHandler *handler.Healthcheck
 
-	db, dbCleanup := getDB(*cfg)
+	if !cfg.DB.UsePgxPool {
+		db, dbCleanup = getDB(*cfg)
+		dbHealhcheckHandler = handler.NewHealthcheck(handler.NewDBPinger(db))
+	} else {
+		zap.S().Infow("used pgx pool")
+		pool, dbCleanup = getPool(ctx, *cfg)
+		dbHealhcheckHandler = handler.NewHealthcheck(pool)
+	}
 	defer dbCleanup()
 
-	storage := getStorage(ctx, db, *cfg)
+	storage := getStorage(ctx, db, pool, *cfg)
 	repo := repository.NewMetricRepository(storage)
 
 	svc := service.NewMetricService(repo)
 
-	r := setupRouter(handler.NewMetricHandler(svc), handler.NewHealthcheck(db))
+	r := setupRouter(handler.NewMetricHandler(svc), dbHealhcheckHandler)
 
 	zap.S().Infow(
 		"Server starting",
@@ -128,12 +140,39 @@ func getDB(cfg config.ServerConfig) (*sql.DB, func()) {
 	return db, cleanup
 }
 
-func getStorage(ctx context.Context, db *sql.DB, cfg config.ServerConfig) metric.Storage {
+func getPool(ctx context.Context, cfg config.ServerConfig) (*pgxpool.Pool, func()) {
+	var pool *pgxpool.Pool
+	var err error
+
+	if cfg.DB.DatabaseDSN != "" {
+		pool, err = database.NewPgxPool(ctx, cfg.DB.DatabaseDSN)
+		if err != nil {
+			zap.S().Error(err)
+		}
+		if pool != nil {
+			if err := database.RunMigrationsFromPool(pool, "file://migrations"); err != nil {
+				zap.S().Fatalw("failed to run migrations", "error", err)
+			}
+		}
+
+	}
+
+	cleanup := func() {
+		if pool != nil {
+			pool.Close()
+		}
+	}
+	return pool, cleanup
+}
+
+func getStorage(ctx context.Context, db *sql.DB, pool *pgxpool.Pool, cfg config.ServerConfig) metric.Storage {
 
 	var storage metric.Storage
 
 	if db != nil {
 		storage = metric.NewPostgresStorage(db)
+	} else if pool != nil {
+		storage = metric.NewPgxPoolStorage(pool)
 	} else {
 		memStorage := metric.NewMemoryStorage()
 		storage = memStorage

@@ -14,6 +14,7 @@ type ServerConfig struct {
 	FileStoragePath string  `env:"FILE_STORAGE_PATH"`
 	Restore         bool    `env:"RESTORE"`
 	DB              *db.Config
+	Key             string `env:"KEY"`
 }
 
 func NewServerConfig() *ServerConfig {
@@ -26,6 +27,7 @@ func NewServerConfig() *ServerConfig {
 	flag.Var(&cfg.StoreInterval, "i", "store interval in seconds")
 	flag.StringVar(&cfg.FileStoragePath, "f", "backup/metrics.json", "store file storage path")
 	flag.BoolVar(&cfg.Restore, "r", true, "store restore")
+	flag.StringVar(&cfg.Key, "k", "", "hash key")
 
 	flag.Parse()
 

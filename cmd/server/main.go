@@ -28,15 +28,15 @@ import (
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
-	loggerCleanup, err := logger.New()
+	if err := godotenv.Load(); err != nil {
+		log.Println("failed to load .env", "error", err)
+	}
+
+	loggerCleanup, err := logger.New("server")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer loggerCleanup()
-
-	if err = godotenv.Load(); err != nil {
-		zap.S().Warnw("failed to load .env", "error", err)
-	}
 
 	cfg := config.NewServerConfig()
 	var pool *pgxpool.Pool
@@ -59,7 +59,7 @@ func main() {
 
 	svc := service.NewMetricService(repo)
 
-	r := setupRouter(handler.NewMetricHandler(svc), dbHealhcheckHandler)
+	r := setupRouter(handler.NewMetricHandler(svc), dbHealhcheckHandler, cfg.Key)
 
 	zap.S().Infow(
 		"Server starting",
@@ -91,11 +91,12 @@ func main() {
 	zap.S().Infow("server stopped")
 }
 
-func setupRouter(h *handler.MetricHandler, hc *handler.Healthcheck) *chi.Mux {
+func setupRouter(h *handler.MetricHandler, hc *handler.Healthcheck, key string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
-	r.Use(middleware.WithLogging())
-	r.Use(middleware.WithGzipCompression())
+	r.Use(middleware.WithLogging())           // порядок важен
+	r.Use(middleware.WithGzipCompression())   // gzip сначала декомпрессирует тело
+	r.Use(middleware.WithHashValidation(key)) // потом hash middleware проверяет хеш от уже декомпрессированного тела
 
 	r.Post("/update/{type}/{name}/{value}", h.Update)
 

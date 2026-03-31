@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -9,14 +10,26 @@ import (
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	if err := godotenv.Load(); err != nil {
+		log.Println("failed to load .env", "error", err)
+	}
+
+	loggerCleanup, err := logger.New("agent")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer loggerCleanup()
+
 	cfg := config.NewAgentConfig()
 	storage := agent.NewLocalStorage()
-	client := agent.NewClient("http://" + cfg.ServerAddress)
+	client := agent.NewClient("http://"+cfg.ServerAddress, agent.WithServerKey(cfg.Key))
 
 	// Горутина для сбора метрик
 	go func() {

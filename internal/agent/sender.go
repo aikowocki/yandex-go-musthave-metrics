@@ -15,30 +15,55 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/middleware"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
+	pkghash "github.com/aikowocki/yandex-go-musthave-metrics/pkg/hash"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
 
+type ClientOption func(*Client)
+
+func WithServerKey(key string) ClientOption {
+	return func(c *Client) {
+		c.serverKey = key
+	}
+}
+
 type Client struct {
 	restyClient *resty.Client
 	serverURL   string
+	serverKey   string
 }
 
-func NewClient(serverURL string) *Client {
-	client := resty.New().
+func NewClient(serverURL string, opts ...ClientOption) *Client {
+	c := &Client{
+		serverURL: serverURL,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	restyClient := resty.New().
 		SetHeader(constants.HeaderContentType, constants.ContentTypeJSON).
 		SetHeader(constants.HeaderContentEncoding, middleware.EncodingGzip).
 		SetHeader(constants.HeaderAcceptEncoding, middleware.EncodingGzip).
 		SetTimeout(1 * time.Second).
-		SetPreRequestHook(func(c *resty.Client, r *http.Request) error {
+		SetPreRequestHook(func(_ *resty.Client, r *http.Request) error {
 			if r.Body == nil {
 				return nil
 			}
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				return err
+			}
+
+			if c.serverKey != "" {
+				r.Header.Set(pkghash.HEADER, pkghash.ComputeHMAC(c.serverKey, body))
+			}
+
 			var buf bytes.Buffer
 			w := gzip.NewWriter(&buf)
-			_, err := io.Copy(w, r.Body)
-			if err != nil {
+			if _, err := w.Write(body); err != nil {
 				return err
 			}
 			if err := w.Close(); err != nil {
@@ -48,10 +73,8 @@ func NewClient(serverURL string) *Client {
 			r.ContentLength = int64(buf.Len())
 			return nil
 		})
-	return &Client{
-		restyClient: client,
-		serverURL:   serverURL,
-	}
+	c.restyClient = restyClient
+	return c
 }
 
 // Deprecated: use ReportJSON

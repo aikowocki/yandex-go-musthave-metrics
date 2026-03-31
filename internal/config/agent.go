@@ -30,6 +30,7 @@ type AgentConfig struct {
 	ServerAddress  string  `env:"ADDRESS"`
 	ReportInterval Seconds `env:"REPORT_INTERVAL"`
 	PollInterval   Seconds `env:"POLL_INTERVAL"`
+	Key            string  `env:"KEY"`
 }
 
 func NewAgentConfig() *AgentConfig {
@@ -41,6 +42,7 @@ func NewAgentConfig() *AgentConfig {
 	flag.StringVar(&cfg.ServerAddress, "a", "localhost:8080", "server address")
 	flag.Var(&cfg.ReportInterval, "r", "report interval in seconds")
 	flag.Var(&cfg.PollInterval, "p", "poll interval in seconds")
+	flag.StringVar(&cfg.Key, "k", "", "hash key")
 
 	flag.Parse()
 

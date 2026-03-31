@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 )
 
@@ -19,6 +20,9 @@ func NewDBPinger(db *sql.DB) *DBPinger {
 }
 
 func (p *DBPinger) Ping(ctx context.Context) error {
+	if p.db == nil {
+		return fmt.Errorf("database connection is nil")
+	}
 	return p.db.PingContext(ctx)
 }
 

@@ -125,7 +125,7 @@ func getDB(cfg config.ServerConfig) (*sql.DB, func()) {
 			zap.S().Error(err)
 		}
 		if db != nil {
-			if err := database.RunMigrations(db, "file://migrations"); err != nil {
+			if err := database.RunMigrations(cfg.DB.DatabaseDSN, "file://migrations"); err != nil {
 				zap.S().Fatalw("failed to run migrations", "error", err)
 			}
 		}
@@ -151,7 +151,7 @@ func getPool(ctx context.Context, cfg config.ServerConfig) (*pgxpool.Pool, func(
 			zap.S().Error(err)
 		}
 		if pool != nil {
-			if err := database.RunMigrationsFromPool(pool, "file://migrations"); err != nil {
+			if err := database.RunMigrations(cfg.DB.DatabaseDSN, "file://migrations"); err != nil {
 				zap.S().Fatalw("failed to run migrations", "error", err)
 			}
 		}

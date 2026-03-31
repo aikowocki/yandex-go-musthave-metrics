@@ -3,12 +3,11 @@ package database
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 )
 
@@ -24,14 +23,20 @@ func (l *MigrationLogger) Verbose() bool {
 	return true
 }
 
-func RunMigrations(db *sql.DB, migrationsPath string) error {
+func RunMigrations(dsn string, migrationsPath string) error {
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return fmt.Errorf("open db for migrations: %w", err)
+	}
+	defer db.Close()
+
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return err
+		return fmt.Errorf("create migration driver: %w", err)
 	}
 	migrateInst, err := migrate.NewWithDatabaseInstance(migrationsPath, "postgres", driver)
 	if err != nil {
-		return err
+		return fmt.Errorf("create migration driver: %w", err)
 	}
 	defer func() {
 		if sourceErr, dbErr := migrateInst.Close(); sourceErr != nil || dbErr != nil {
@@ -47,10 +52,4 @@ func RunMigrations(db *sql.DB, migrationsPath string) error {
 		return err
 	}
 	return nil
-}
-
-func RunMigrationsFromPool(pool *pgxpool.Pool, migrationsPath string) error {
-	db := stdlib.OpenDBFromPool(pool)
-	defer db.Close()
-	return RunMigrations(db, migrationsPath)
 }

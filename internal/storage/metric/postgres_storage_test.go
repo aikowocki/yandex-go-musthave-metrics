@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = database.RunMigrations(testDB, "file://../../../migrations")
+	err = database.RunMigrations(dsn, "file://../../../migrations")
 	if err != nil {
 		log.Fatal(err)
 	}

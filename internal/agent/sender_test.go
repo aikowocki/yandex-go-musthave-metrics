@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -131,7 +132,7 @@ func TestReportBatch_SendsToUpdatesEndpoint(t *testing.T) {
 	storage.AddCounter("hits", 10)
 
 	client := NewClient(server.URL)
-	ReportBatch(storage, client)
+	SendBatch(context.Background(), client, CollectBatch(storage))
 
 	assert.Equal(t, "/updates", capturedPath)
 }
@@ -146,7 +147,7 @@ func TestReportBatch_EmptyStorage_NoRequest(t *testing.T) {
 
 	storage := NewLocalStorage() // пустое хранилище
 	client := NewClient(server.URL)
-	ReportBatch(storage, client)
+	SendBatch(context.Background(), client, CollectBatch(storage))
 
 	assert.False(t, requestMade, "should not send request for empty storage")
 }

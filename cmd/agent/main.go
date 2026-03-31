@@ -5,12 +5,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
 	"github.com/joho/godotenv"
 )
 
@@ -31,6 +33,19 @@ func main() {
 	storage := agent.NewLocalStorage()
 	client := agent.NewClient("http://"+cfg.ServerAddress, agent.WithServerKey(cfg.Key))
 
+	jobs := make(chan []model.MetricDTO, cfg.RateLimit)
+	var wg sync.WaitGroup
+
+	for i := 0; i < cfg.RateLimit; i++ { // запускаем N воркеров
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				agent.SendBatch(ctx, client, job)
+			}
+		}()
+	}
+
 	// Горутина для сбора метрик
 	go func() {
 		pollTicker := time.NewTicker(time.Duration(cfg.PollInterval))
@@ -44,6 +59,21 @@ func main() {
 			}
 		}
 	}()
+
+	// Горутина для сбора системных метрик
+	go func() {
+		pollTicker := time.NewTicker(time.Duration(cfg.PollInterval))
+		defer pollTicker.Stop()
+		for {
+			select {
+			case <-pollTicker.C:
+				agent.CollectSystemMetrics(storage)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	// Горутина для отправки метрик
 	go func() {
 		ticker := time.NewTicker(time.Duration(cfg.ReportInterval))
@@ -51,15 +81,23 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				agent.ReportBatch(storage, client)
+				metrics := agent.CollectBatch(storage)
+				if len(metrics) > 0 {
+					jobs <- metrics
+				}
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	<-sigCh
 	cancel()
-	agent.ReportBatch(storage, client)
+	if metrics := agent.CollectBatch(storage); len(metrics) > 0 {
+		jobs <- metrics
+	}
+	close(jobs)
+	wg.Wait()
 }

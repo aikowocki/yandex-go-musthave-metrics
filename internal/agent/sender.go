@@ -124,8 +124,8 @@ func ReportJSON(storage MetricStorage, client *Client) {
 	}
 }
 
-func ReportBatch(storage MetricStorage, client *Client) {
-	zap.S().Debugw("reporting metrics to server")
+func CollectBatch(storage MetricStorage) []model.MetricDTO {
+	zap.S().Debugw("collecting metrics batch")
 	var metrics []model.MetricDTO
 	for name, value := range storage.SnapshotGauges() {
 		v := value
@@ -144,14 +144,18 @@ func ReportBatch(storage MetricStorage, client *Client) {
 			Delta: &v,
 		})
 	}
+	return metrics
+}
 
+func SendBatch(ctx context.Context, client *Client, metrics []model.MetricDTO) {
+	zap.S().Debugw("sending metrics batch to server")
 	if len(metrics) > 0 {
 		send := func() error { return client.SendMetrics(metrics) }
 		retrierCondition := func(err error) bool {
 			var netErr *net.OpError
 			return errors.As(err, &netErr)
 		}
-		if err := retry.Do(context.TODO(), send, retry.WithRetryIf(retrierCondition)); err != nil {
+		if err := retry.Do(ctx, send, retry.WithRetryIf(retrierCondition)); err != nil {
 			zap.S().Errorw("failed to send metrics", zap.Error(err))
 		}
 	}

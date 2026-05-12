@@ -43,7 +43,7 @@ func (s *PostgresStorage) UpdateGauge(ctx context.Context, name string, value fl
 	q := `
 		INSERT INTO gauges (name, value)
 		VALUES ($1, $2)
-		ON CONFLICT (name) DO UPDATE SET value = $2
+		ON CONFLICT (name) DO UPDATE SET value = $2, updated_at = NOW()
 	`
 	_, err := s.db.ExecContext(ctx, q, name, value)
 
@@ -77,7 +77,7 @@ func (s *PostgresStorage) UpdateCounter(ctx context.Context, name string, value 
 	q := `
 		INSERT INTO counters(name, value)
 		VALUES ($1, $2)
-		ON CONFLICT (name) DO UPDATE SET value = counters.value + $2
+		ON CONFLICT (name) DO UPDATE SET value = counters.value + $2, updated_at = NOW()
 		RETURNING value
 	`
 
@@ -172,7 +172,7 @@ func insertCountersBatch(ctx context.Context, tx *sql.Tx, counters map[string]in
 	query := `
 		INSERT INTO counters (name, value)
 		SELECT * FROM UNNEST($1::text[], $2::int8[])
-		ON CONFLICT (name) DO UPDATE SET value = counters.value +  EXCLUDED.value
+		ON CONFLICT (name) DO UPDATE SET value = counters.value + EXCLUDED.value, updated_at = NOW()
 	`
 	return insertBatch(ctx, tx, counters, query)
 }
@@ -181,7 +181,7 @@ func insertGaugesBatch(ctx context.Context, tx *sql.Tx, gauges map[string]float6
 	query := `
 		INSERT INTO gauges (name, value)
 		SELECT * FROM UNNEST($1::text[], $2::float8[])
-		ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value
+		ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
 	`
 	return insertBatch(ctx, tx, gauges, query)
 }

@@ -22,6 +22,14 @@ func NewMetricHandler(service service.MetricService) *MetricHandler {
 	return &MetricHandler{service: service}
 }
 
+func writeJSONError(w http.ResponseWriter, message string, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(struct {
+		Error string `json:"error"`
+	}{Error: message})
+}
+
 func (h *MetricHandler) Update(w http.ResponseWriter, r *http.Request) {
 	m, err := model.NewMetric(
 		chi.URLParam(r, "type"),
@@ -44,19 +52,19 @@ func (h *MetricHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *MetricHandler) UpdateJSON(w http.ResponseWriter, r *http.Request) {
 	var mr model.MetricDTO
 	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		writeJSONError(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	m, err := mr.ToMetric()
 
 	if err != nil {
-		h.handleUpdateError(err, w)
+		h.handleUpdateErrorJSON(err, w)
 		return
 	}
 
 	ctx := r.Context()
 	if m, err = h.service.Update(ctx, m); err != nil {
-		h.handleUpdateError(err, w)
+		h.handleUpdateErrorJSON(err, w)
 		return
 	}
 
@@ -73,6 +81,18 @@ func (h *MetricHandler) handleUpdateError(err error, w http.ResponseWriter) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, "failed to update metric", http.StatusInternalServerError)
+	}
+}
+
+func (h *MetricHandler) handleUpdateErrorJSON(err error, w http.ResponseWriter) {
+	switch {
+	case errors.Is(err, model.ErrEmptyName):
+		writeJSONError(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, model.ErrInvalidType),
+		errors.Is(err, model.ErrInvalidValue):
+		writeJSONError(w, err.Error(), http.StatusBadRequest)
+	default:
+		writeJSONError(w, "failed to update metric", http.StatusInternalServerError)
 	}
 }
 
@@ -100,13 +120,13 @@ func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *MetricHandler) GetJSON(w http.ResponseWriter, r *http.Request) {
 	var mr model.MetricDTO
 	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		writeJSONError(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 	ctx := r.Context()
 	m, err := h.service.Get(ctx, mr.MType, mr.ID)
 	if err != nil {
-		h.handleGetError(err, w)
+		h.handleGetErrorJSON(err, w)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -120,6 +140,15 @@ func (h *MetricHandler) handleGetError(err error, w http.ResponseWriter) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	default:
 		http.Error(w, "failed to get metric", http.StatusInternalServerError)
+	}
+}
+
+func (h *MetricHandler) handleGetErrorJSON(err error, w http.ResponseWriter) {
+	switch {
+	case errors.Is(err, metric.ErrNotFound):
+		writeJSONError(w, err.Error(), http.StatusNotFound)
+	default:
+		writeJSONError(w, "failed to get metric", http.StatusInternalServerError)
 	}
 }
 
@@ -152,17 +181,17 @@ func (h *MetricHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&metrics); err != nil {
 		if errors.As(err, new(*json.SyntaxError)) {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			writeJSONError(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
 		// иначе это ошибка валидации
-		h.handleUpdateError(err, w)
+		h.handleUpdateErrorJSON(err, w)
 		return
 	}
 
 	if len(metrics) > 0 {
 		if err := h.service.UpdateBatch(ctx, metrics); err != nil {
-			h.handleUpdateError(err, w)
+			h.handleUpdateErrorJSON(err, w)
 			return
 		}
 	}

@@ -1,0 +1,34 @@
+package handler
+
+import (
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/in/handler/middleware"
+	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
+)
+
+func NewRouter(metric *MetricHandler, metricJSON *MetricJSONHandler, health *HealthHandler, key string) *chi.Mux {
+	r := chi.NewRouter()
+	r.Use(chimw.StripSlashes)
+	r.Use(chimw.RequestID)
+	r.Use(middleware.WithLogging())           // порядок важен
+	r.Use(middleware.WithGzipCompression())   // gzip сначала декомпрессирует тело
+	r.Use(middleware.WithHashValidation(key)) // потом hash middleware проверяет хеш от уже декомпрессированного тела
+
+	//r.Use(middleware.WithRecovery) //toDO
+
+	r.Post("/update/{type}/{name}/{value}", metric.Update)
+
+	//REST
+	r.Group(func(r chi.Router) {
+		r.Use(chimw.AllowContentType("application/json"))
+		r.Post("/update", metricJSON.Update)
+		r.Post("/updates", metricJSON.BatchUpdate)
+		r.Post("/value", metricJSON.Get)
+	})
+
+	r.Get("/value/{type}/{name}", metric.Get)
+	r.Get("/ping", health.Ping)
+	r.Get("/", metric.List)
+
+	return r
+}

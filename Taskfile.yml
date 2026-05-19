@@ -166,12 +166,32 @@ tasks:
   db-up:
     desc: "Запустить PostgreSQL контейнер"
     cmds:
-      - docker compose -f deployments/docker-compose.yml up -d
+      - docker compose -f deployments/docker-compose.yml up -d postgres
 
   db-down:
     desc: "Остановить PostgreSQL контейнер"
     cmds:
+      - docker compose -f deployments/docker-compose.yml stop postgres
+
+  up:
+    desc: "Поднять весь стек (postgres + server + agent)"
+    cmds:
+      - docker compose -f deployments/docker-compose.yml up -d --build
+
+  down:
+    desc: "Остановить весь стек"
+    cmds:
       - docker compose -f deployments/docker-compose.yml down
+
+  logs:
+    desc: "Логи всего стека"
+    cmds:
+      - docker compose -f deployments/docker-compose.yml logs -f
+
+  rebuild:
+    desc: "Пересобрать образы server и agent без кеша"
+    cmds:
+      - docker compose -f deployments/docker-compose.yml build --no-cache server agent
 
   db-logs:
     desc: "Показать логи PostgreSQL"

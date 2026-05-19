@@ -6,4 +6,5 @@ const (
 	HeaderAcceptEncoding  = "Accept-Encoding"
 	HeaderContentType     = "Content-Type"
 	ContentTypeJSON       = "application/json"
+	EncodingGzip          = "gzip"
 )

@@ -12,8 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/middleware"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
 	pkghash "github.com/aikowocki/yandex-go-musthave-metrics/pkg/hash"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
@@ -45,8 +44,8 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 
 	restyClient := resty.New().
 		SetHeader(constants.HeaderContentType, constants.ContentTypeJSON).
-		SetHeader(constants.HeaderContentEncoding, middleware.EncodingGzip).
-		SetHeader(constants.HeaderAcceptEncoding, middleware.EncodingGzip).
+		SetHeader(constants.HeaderContentEncoding, constants.EncodingGzip).
+		SetHeader(constants.HeaderAcceptEncoding, constants.EncodingGzip).
 		SetTimeout(1 * time.Second).
 		SetPreRequestHook(func(_ *resty.Client, r *http.Request) error {
 			if r.Body == nil {
@@ -82,14 +81,14 @@ func Report(storage MetricStorage, client *Client) {
 	zap.S().Debugw("reporting metrics to server")
 
 	storage.ForEachGauge(func(name string, value float64) {
-		err := client.SendMetric(model.MetricTypeGauge, name, strconv.FormatFloat(value, 'f', -1, 64))
+		err := client.SendMetric(api.MetricTypeGauge, name, strconv.FormatFloat(value, 'f', -1, 64))
 		if err != nil {
 			zap.S().Errorw("failed to send gauge", "name", name, zap.Error(err))
 		}
 	})
 
 	for name, value := range storage.SnapshotCounters() {
-		err := client.SendMetric(model.MetricTypeCounter, name, strconv.FormatInt(value, 10))
+		err := client.SendMetric(api.MetricTypeCounter, name, strconv.FormatInt(value, 10))
 		if err != nil {
 			zap.S().Errorw("failed to send counter", "name", name, zap.Error(err))
 		}
@@ -101,9 +100,9 @@ func ReportJSON(storage MetricStorage, client *Client) {
 
 	storage.ForEachGauge(func(name string, value float64) {
 		v := value
-		err := client.SendMetricJSON(model.MetricDTO{
+		err := client.SendMetricJSON(api.MetricDTO{
 			ID:    name,
-			MType: string(model.MetricTypeGauge),
+			MType: api.MetricTypeGauge,
 			Value: &v,
 		})
 		if err != nil {
@@ -113,9 +112,9 @@ func ReportJSON(storage MetricStorage, client *Client) {
 
 	for name, value := range storage.SnapshotCounters() {
 		v := value
-		err := client.SendMetricJSON(model.MetricDTO{
+		err := client.SendMetricJSON(api.MetricDTO{
 			ID:    name,
-			MType: string(model.MetricTypeCounter),
+			MType: api.MetricTypeCounter,
 			Delta: &v,
 		})
 		if err != nil {
@@ -124,30 +123,30 @@ func ReportJSON(storage MetricStorage, client *Client) {
 	}
 }
 
-func CollectBatch(storage MetricStorage) []model.MetricDTO {
+func CollectBatch(storage MetricStorage) []api.MetricDTO {
 	zap.S().Debugw("collecting metrics batch")
-	var metrics []model.MetricDTO
+	var metrics []api.MetricDTO
 	for name, value := range storage.SnapshotGauges() {
 		v := value
-		metrics = append(metrics, model.MetricDTO{
+		metrics = append(metrics, api.MetricDTO{
 			ID:    name,
-			MType: string(model.MetricTypeGauge),
+			MType: api.MetricTypeGauge,
 			Value: &v,
 		})
 	}
 
 	for name, value := range storage.SnapshotCounters() {
 		v := value
-		metrics = append(metrics, model.MetricDTO{
+		metrics = append(metrics, api.MetricDTO{
 			ID:    name,
-			MType: string(model.MetricTypeCounter),
+			MType: api.MetricTypeCounter,
 			Delta: &v,
 		})
 	}
 	return metrics
 }
 
-func SendBatch(ctx context.Context, client *Client, metrics []model.MetricDTO) {
+func SendBatch(ctx context.Context, client *Client, metrics []api.MetricDTO) {
 	zap.S().Debugw("sending metrics batch to server")
 	if len(metrics) > 0 {
 		send := func() error { return client.SendMetrics(metrics) }
@@ -162,7 +161,7 @@ func SendBatch(ctx context.Context, client *Client, metrics []model.MetricDTO) {
 }
 
 // Deprecated: use SendMetricJSON
-func (c *Client) SendMetric(metricType model.MetricType, name, value string) error {
+func (c *Client) SendMetric(metricType string, name, value string) error {
 	url := fmt.Sprintf("%s/update/%s/%s/%s", c.serverURL, metricType, name, value)
 
 	resp, err := c.restyClient.R().Post(url)
@@ -177,7 +176,7 @@ func (c *Client) SendMetric(metricType model.MetricType, name, value string) err
 	return nil
 }
 
-func (c *Client) SendMetricJSON(dto model.MetricDTO) error {
+func (c *Client) SendMetricJSON(dto api.MetricDTO) error {
 	url := fmt.Sprintf("%s/update", c.serverURL)
 
 	resp, err := c.restyClient.R().SetBody(dto).Post(url)
@@ -192,7 +191,7 @@ func (c *Client) SendMetricJSON(dto model.MetricDTO) error {
 	return nil
 }
 
-func (c *Client) SendMetrics(dtos []model.MetricDTO) error {
+func (c *Client) SendMetrics(dtos []api.MetricDTO) error {
 	url := fmt.Sprintf("%s/updates", c.serverURL)
 
 	resp, err := c.restyClient.R().SetBody(dtos).Post(url)

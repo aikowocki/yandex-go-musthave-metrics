@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -10,9 +11,9 @@ import (
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent/config"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
 	"github.com/joho/godotenv"
 )
 
@@ -29,11 +30,17 @@ func main() {
 	}
 	defer loggerCleanup()
 
-	cfg := config.NewAgentConfig()
+	cfg, err := config.NewAgentConfig()
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Fatal("failed to load .env", err)
+		}
+	}
+
 	storage := agent.NewLocalStorage()
 	client := agent.NewClient("http://"+cfg.ServerAddress, agent.WithServerKey(cfg.Key))
 
-	jobs := make(chan []model.MetricDTO, cfg.RateLimit)
+	jobs := make(chan []api.MetricDTO, cfg.RateLimit)
 	var wg sync.WaitGroup
 
 	for i := 0; i < cfg.RateLimit; i++ { // запускаем N воркеров

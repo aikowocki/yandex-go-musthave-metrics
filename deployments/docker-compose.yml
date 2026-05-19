@@ -1,3 +1,5 @@
+name: yandex-metrics
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -6,16 +8,52 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports: 
+    ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # персистентность
-
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  server:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.server
+    container_name: metrics-server
+    ports:
+      - "8080:8080"
+    environment:
+      ADDRESS: 0.0.0.0:8080
+      DATABASE_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      FILE_STORAGE_PATH: /data/metrics.json
+      STORE_INTERVAL: "300"
+      RESTORE: "true"
+      KEY: ${KEY:-}
+    volumes:
+      - server_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  agent:
+    build:
+      context: ..
+      dockerfile: deployments/Dockerfile.agent
+    container_name: metrics-agent
+    environment:
+      ADDRESS: server:8080
+      REPORT_INTERVAL: "10"
+      POLL_INTERVAL: "2"
+      KEY: ${KEY:-}
+      RATE_LIMIT: ${RATE_LIMIT:-5}
+    depends_on:
+      - server
+    restart: unless-stopped
+
 volumes:
   postgres_data:
-
+  server_data:

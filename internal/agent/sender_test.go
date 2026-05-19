@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -32,7 +32,7 @@ func TestClient_SendMetric_Success(t *testing.T) {
 	client := NewClient(server.URL) // server.URL = "http://127.0.0.1:12345" (случайный порт)
 
 	// Вызываем тестируемую функцию
-	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
+	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
 
 	// Проверяем что ошибки нет
 	assert.NoError(t, err)
@@ -45,14 +45,14 @@ func TestClient_SendMetric_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
+	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
 
 	assert.Error(t, err)
 }
 
 func TestClient_SendMetric_InvalidURL(t *testing.T) {
 	client := NewClient("ht!tp://invalid") // невалидный URL
-	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
+	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
 	assert.Error(t, err)
 }
 
@@ -81,7 +81,7 @@ func TestClient_SendMetric_AllRetriesFail(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetric(model.MetricTypeGauge, "test", "3.14")
+	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
 
 	assert.Error(t, err)
 
@@ -96,7 +96,7 @@ func TestClient_SendMetrics_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetrics([]model.MetricDTO{
+	err := client.SendMetrics([]api.MetricDTO{
 		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 3.14; return &v }()},
 		{ID: "hits", MType: "counter", Delta: func() *int64 { v := int64(5); return &v }()},
 	})
@@ -112,7 +112,7 @@ func TestClient_SendMetrics_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetrics([]model.MetricDTO{
+	err := client.SendMetrics([]api.MetricDTO{
 		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
 	})
 

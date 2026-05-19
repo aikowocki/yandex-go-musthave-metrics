@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+.github
+
+# IDE / editors
+.idea
+.vscode
+
+# Local binaries from go build
+cmd/agent/agent
+cmd/server/server
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+
+# Test/coverage artifacts
+*.out
+coverage.out
+
+# Runtime data
+backup/
+logs/
+tmp/
+postgres_data/
+
+# Local env / configs
+.env
+deployments/.env
+deployments/postgres/
+
+# Yandex autotest binary
+metricstest_v2-darwin-arm64
+metricstest_v2-linux-amd64
+
+# Misc
+.DS_Store
+*.md
+qodana.yaml
+keep.md

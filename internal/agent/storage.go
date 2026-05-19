@@ -62,7 +62,7 @@ func (m *LocalMetrics) ForEachGauge(fn func(name string, value float64)) {
 	}
 }
 
-// SnapshotCounters возвращает копию gauges
+// SnapshotGauges возвращает копию gauges
 func (m *LocalMetrics) SnapshotGauges() map[string]float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()

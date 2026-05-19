@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 
@@ -31,6 +32,10 @@ func WithHashValidation(key string) func(http.Handler) http.Handler {
 			if headerHash := r.Header.Get(pkghash.HEADER); headerHash != "" {
 				body, err := io.ReadAll(r.Body)
 				if err != nil {
+					if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+						http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+						return
+					}
 					http.Error(w, "failed to read body", http.StatusInternalServerError)
 					return
 				}

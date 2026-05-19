@@ -10,9 +10,10 @@ func NewRouter(metric *MetricHandler, metricJSON *MetricJSONHandler, health *Hea
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 	r.Use(chimw.RequestID)
-	r.Use(middleware.WithLogging())           // порядок важен
-	r.Use(middleware.WithGzipCompression())   // gzip сначала декомпрессирует тело
-	r.Use(middleware.WithHashValidation(key)) // потом hash middleware проверяет хеш от уже декомпрессированного тела
+	r.Use(middleware.WithMaxBodySize(middleware.DefaultMaxBodyBytes)) // ограничение размера сырого тела до gzip/hash/handler
+	r.Use(middleware.WithLogging())                                   // порядок важен
+	r.Use(middleware.WithGzipCompression())                           // gzip сначала декомпрессирует тело
+	r.Use(middleware.WithHashValidation(key))                         // потом hash middleware проверяет хеш от уже декомпрессированного тела
 
 	//r.Use(middleware.WithRecovery) //toDO
 

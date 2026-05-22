@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
 )
 
 type MetricJSONHandler struct {
-	uc MetricUseCase
+	uc    MetricUseCase
+	audit port.AuditPublisher
 }
 
-func NewMetricJSONHandler(uc MetricUseCase) *MetricJSONHandler {
-	return &MetricJSONHandler{uc: uc}
+func NewMetricJSONHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricJSONHandler {
+	return &MetricJSONHandler{uc: uc, audit: audit}
 }
 
 type metricDTO struct {
@@ -79,6 +82,8 @@ func (h *MetricJSONHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.publishAudit(r, []string{m.GetName()})
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(toResponse(m))
 }
@@ -109,7 +114,6 @@ func (h *MetricJSONHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(toResponse(m))
-
 }
 
 func (h *MetricJSONHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) {
@@ -135,7 +139,23 @@ func (h *MetricJSONHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) 
 			h.handleError(err, w, "failed to batch update metric")
 			return
 		}
+		names := make([]string, len(metrics))
+		for i, m := range metrics {
+			names[i] = m.GetName()
+		}
+		h.publishAudit(r, names)
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *MetricJSONHandler) publishAudit(r *http.Request, names []string) {
+	if h.audit == nil || len(names) == 0 {
+		return
+	}
+	h.audit.Publish(entity.AuditEvent{
+		Timestamp: time.Now().Unix(),
+		Metrics:   names,
+		IPAddress: clientIP(r),
+	})
 }

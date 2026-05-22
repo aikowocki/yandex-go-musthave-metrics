@@ -32,6 +32,8 @@ services:
       STORE_INTERVAL: "300"
       RESTORE: "true"
       KEY: ${KEY:-}
+      AUDIT_FILE: ${AUDIT_FILE:-}
+      AUDIT_URL: ${AUDIT_URL:-}
     volumes:
       - server_data:/data
     depends_on:

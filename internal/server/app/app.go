@@ -27,9 +27,15 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 		return nil, err
 	}
 
+	auditPublisher, auditClose, err := initAudit(cfg)
+	if err != nil {
+		storage.closer()
+		return nil, err
+	}
+
 	metricUseCase := usecase.NewMetricUseCase(storage.repos.MetricRepo())
-	metricHandler := handler.NewMetricHandler(metricUseCase)
-	metricJSONHandler := handler.NewMetricJSONHandler(metricUseCase)
+	metricHandler := handler.NewMetricHandler(metricUseCase, auditPublisher)
+	metricJSONHandler := handler.NewMetricJSONHandler(metricUseCase, auditPublisher)
 
 	healthHandler := handler.NewHealthHandler(storage.pinger)
 
@@ -45,7 +51,12 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 		Handler: r,
 	}
 
-	return &ServerApp{server: srv, closer: storage.closer}, nil
+	closer := func() {
+		auditClose()
+		storage.closer()
+	}
+
+	return &ServerApp{server: srv, closer: closer}, nil
 }
 
 func (a *ServerApp) Run(ctx context.Context) {

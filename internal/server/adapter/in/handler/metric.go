@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -19,11 +21,12 @@ type MetricUseCase interface {
 }
 
 type MetricHandler struct {
-	uc MetricUseCase
+	uc    MetricUseCase
+	audit port.AuditPublisher
 }
 
-func NewMetricHandler(uc MetricUseCase) *MetricHandler {
-	return &MetricHandler{uc: uc}
+func NewMetricHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricHandler {
+	return &MetricHandler{uc: uc, audit: audit}
 }
 
 func (h *MetricHandler) handleError(err error, w http.ResponseWriter) {
@@ -80,6 +83,8 @@ func (h *MetricHandler) Update(w http.ResponseWriter, r *http.Request) {
 		h.handleError(err, w)
 		return
 	}
+
+	h.publishAudit(r, []string{m.GetName()})
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -117,4 +122,15 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Fprint(w, "</ul></body></html>")
+}
+
+func (h *MetricHandler) publishAudit(r *http.Request, names []string) {
+	if h.audit == nil || len(names) == 0 {
+		return
+	}
+	h.audit.Publish(entity.AuditEvent{
+		Timestamp: time.Now().Unix(),
+		Metrics:   names,
+		IPAddress: clientIP(r),
+	})
 }

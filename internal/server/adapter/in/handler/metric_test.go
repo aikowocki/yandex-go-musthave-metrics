@@ -42,7 +42,7 @@ func TestMetricHandler_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewMetricHandler(newTestUseCase())
+			h := NewMetricHandler(newTestUseCase(), nil)
 			r := chi.NewRouter()
 			r.Post("/update/{type}/{name}/{value}", h.Update)
 
@@ -94,7 +94,7 @@ func TestMetricHandler_Get(t *testing.T) {
 			uc := newTestUseCase()
 			require.NoError(t, tt.seed(context.Background(), uc))
 
-			h := NewMetricHandler(uc)
+			h := NewMetricHandler(uc, nil)
 			r := chi.NewRouter()
 			r.Get("/value/{type}/{name}", h.Get)
 
@@ -118,7 +118,7 @@ func TestMetricHandler_List(t *testing.T) {
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("memory", 128.0)))
 	require.NoError(t, uc.Save(ctx, entity.NewCounterMetric("requests", 10)))
 
-	h := NewMetricHandler(uc)
+	h := NewMetricHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Get("/", h.List)
 
@@ -159,7 +159,7 @@ func TestMetricJSONHandler_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewMetricJSONHandler(newTestUseCase())
+			h := NewMetricJSONHandler(newTestUseCase(), nil)
 			r := chi.NewRouter()
 			r.Post("/update", h.Update)
 
@@ -177,7 +177,7 @@ func TestMetricJSONHandler_Update(t *testing.T) {
 }
 
 func TestMetricJSONHandler_Update_ResponseBody(t *testing.T) {
-	h := NewMetricJSONHandler(newTestUseCase())
+	h := NewMetricJSONHandler(newTestUseCase(), nil)
 	r := chi.NewRouter()
 	r.Post("/update", h.Update)
 
@@ -198,7 +198,7 @@ func TestMetricJSONHandler_Update_ResponseBody(t *testing.T) {
 }
 
 func TestMetricJSONHandler_Update_CounterAccumulates(t *testing.T) {
-	h := NewMetricJSONHandler(newTestUseCase())
+	h := NewMetricJSONHandler(newTestUseCase(), nil)
 	r := chi.NewRouter()
 	r.Post("/update", h.Update)
 
@@ -266,7 +266,7 @@ func TestMetricJSONHandler_Get(t *testing.T) {
 			uc := newTestUseCase()
 			require.NoError(t, tt.seed(context.Background(), uc))
 
-			h := NewMetricJSONHandler(uc)
+			h := NewMetricJSONHandler(uc, nil)
 			r := chi.NewRouter()
 			r.Post("/value", h.Get)
 
@@ -287,7 +287,7 @@ func TestMetricJSONHandler_Get_ResponseBody(t *testing.T) {
 	uc := newTestUseCase()
 	require.NoError(t, uc.Save(context.Background(), entity.NewGaugeMetric("cpu", 42.5)))
 
-	h := NewMetricJSONHandler(uc)
+	h := NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Post("/value", h.Get)
 
@@ -326,7 +326,7 @@ func TestMetricJSONHandler_BatchUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewMetricJSONHandler(newTestUseCase())
+			h := NewMetricJSONHandler(newTestUseCase(), nil)
 			r := chi.NewRouter()
 			r.Post("/updates", h.BatchUpdate)
 
@@ -342,7 +342,7 @@ func TestMetricJSONHandler_BatchUpdate(t *testing.T) {
 
 func TestMetricJSONHandler_BatchUpdate_CounterAccumulates(t *testing.T) {
 	uc := newTestUseCase()
-	h := NewMetricJSONHandler(uc)
+	h := NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Post("/updates", h.BatchUpdate)
 

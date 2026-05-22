@@ -34,6 +34,8 @@ type ServerConfig struct {
 	Restore         bool    `env:"RESTORE"`
 	DB              *db.Config
 	Key             string `env:"KEY"`
+	AuditFile       string `env:"AUDIT_FILE"`
+	AuditURL        string `env:"AUDIT_URL"`
 }
 
 func NewServerConfig() (*ServerConfig, error) {
@@ -47,6 +49,8 @@ func NewServerConfig() (*ServerConfig, error) {
 	flag.StringVar(&cfg.FileStoragePath, "f", "backup/metrics.json", "store file storage path")
 	flag.BoolVar(&cfg.Restore, "r", true, "store restore")
 	flag.StringVar(&cfg.Key, "k", "", "hash key")
+	flag.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disable file audit)")
+	flag.StringVar(&cfg.AuditURL, "audit-url", "", "URL for HTTP audit sink (empty disable HTTP audit)")
 
 	flag.Parse()
 	if err := env.Parse(cfg); err != nil {

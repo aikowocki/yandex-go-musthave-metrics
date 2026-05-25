@@ -20,11 +20,14 @@ type MetricUseCase interface {
 	UpdateBatch(ctx context.Context, metrics []entity.Metric) error
 }
 
+// MetricHandler обрабатывает HTTP-запросы для работы с метриками через URL-параметры.
+// Используется для эндпоинтов вида /update/{type}/{name}/{value} и /value/{type}/{name}.
 type MetricHandler struct {
 	uc    MetricUseCase
 	audit port.AuditPublisher
 }
 
+// NewMetricHandler создаёт новый обработчик метрик с URL-параметрами.
 func NewMetricHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricHandler {
 	return &MetricHandler{uc: uc, audit: audit}
 }

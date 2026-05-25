@@ -6,6 +6,8 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 )
 
+// NewRouter собирает HTTP-роутер со всеми эндпоинтами и middleware.
+// Порядок middleware: StripSlashes → RequestID → MaxBody → Logging → Gzip → Hash.
 func NewRouter(metric *MetricHandler, metricJSON *MetricJSONHandler, health *HealthHandler, key string) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)

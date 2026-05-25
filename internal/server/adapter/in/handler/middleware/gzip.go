@@ -98,6 +98,10 @@ func (c *compressReader) Close() error {
 	return err
 }
 
+// WithGzipCompression возвращает middleware для прозрачного сжатия/распаковки HTTP-трафика.
+// Если клиент поддерживает gzip (Accept-Encoding: gzip) — ответ сжимается.
+// Если клиент отправляет сжатые данные (Content-Encoding: gzip) — тело распаковывается.
+// Использует sync.Pool для переиспользования gzip.Writer и gzip.Reader.
 func WithGzipCompression() func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

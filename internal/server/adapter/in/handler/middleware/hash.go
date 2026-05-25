@@ -19,6 +19,8 @@ func (w *hashResponseWriter) Write(b []byte) (int, error) {
 	return w.buf.Write(b)
 }
 
+// WithHashValidation возвращает middleware для проверки HMAC-подписи входящих запросов
+// и подписи исходящих ответов. Если key пустой — middleware пропускает запросы без проверки.
 func WithHashValidation(key string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

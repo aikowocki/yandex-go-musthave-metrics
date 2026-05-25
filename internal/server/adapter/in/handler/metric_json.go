@@ -10,11 +10,14 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
 )
 
+// MetricJSONHandler обрабатывает HTTP-запросы для работы с метриками через JSON body.
+// Используется для эндпоинтов POST /update, POST /updates, POST /value.
 type MetricJSONHandler struct {
 	uc    MetricUseCase
 	audit port.AuditPublisher
 }
 
+// NewMetricJSONHandler создаёт новый обработчик метрик с JSON body.
 func NewMetricJSONHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricJSONHandler {
 	return &MetricJSONHandler{uc: uc, audit: audit}
 }

@@ -31,12 +31,15 @@ func WithServerKey(key string) ClientOption {
 	}
 }
 
+// Client — HTTP-клиент агента для отправки метрик на сервер.
+// Поддерживает gzip-сжатие и HMAC-подпись запросов.
 type Client struct {
 	restyClient *resty.Client
 	serverURL   string
 	serverKey   string
 }
 
+// NewClient создаёт нового клиента для отправки метрик на указанный сервер.
 func NewClient(serverURL string, opts ...ClientOption) *Client {
 	c := &Client{
 		serverURL: serverURL,
@@ -131,6 +134,9 @@ func ReportJSON(storage MetricStorage, client *Client) {
 	}
 }
 
+// CollectBatch формирует пачку метрик из storage для отправки на сервер.
+// Возвращает слайс MetricDTO, готовый к отправке через SendBatch.
+// Вызов SnapshotCounters сбрасывает счётчики в storage.
 func CollectBatch(storage MetricStorage) []api.MetricDTO {
 	zap.S().Debugw("collecting metrics batch")
 	gauges := storage.SnapshotGauges()
@@ -156,6 +162,7 @@ func CollectBatch(storage MetricStorage) []api.MetricDTO {
 	return metrics
 }
 
+// SendBatch отправляет пачку метрик на сервер с retry-логикой при сетевых ошибках.
 func SendBatch(ctx context.Context, client *Client, metrics []api.MetricDTO) {
 	zap.S().Debugw("sending metrics batch to server")
 	if len(metrics) > 0 {

@@ -45,6 +45,8 @@ func getRuntimeMetrics() map[string]any {
 	}
 }
 
+// CollectMetrics собирает runtime-метрики Go (memory stats) и записывает их в storage.
+// Вызывается периодически агентом по таймеру PollInterval.
 func CollectMetrics(storage MetricStorage) {
 	zap.S().Debugw("collecting metrics")
 	var memStats runtime.MemStats
@@ -82,6 +84,7 @@ func CollectMetrics(storage MetricStorage) {
 	storage.SetGauge("RandomValue", rand.Float64())
 }
 
+// CollectSystemMetrics собирает системные метрики (память, CPU) через gopsutil.
 func CollectSystemMetrics(storage MetricStorage) {
 	stat, err := mem.VirtualMemory()
 	if err != nil {

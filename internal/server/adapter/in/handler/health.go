@@ -5,14 +5,17 @@ import (
 	"net/http"
 )
 
+// Pinger — интерфейс для проверки доступности внешнего ресурса (например, БД).
 type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
+// HealthHandler обрабатывает запросы проверки здоровья сервиса (ping).
 type HealthHandler struct {
 	pinger Pinger
 }
 
+// NewHealthHandler создаёт обработчик health-check с указанным pinger (обычно — подключение к БД).
 func NewHealthHandler(pinger Pinger) *HealthHandler {
 	return &HealthHandler{pinger: pinger}
 }

@@ -32,6 +32,7 @@ type AgentConfig struct {
 	PollInterval   Seconds `env:"POLL_INTERVAL"`
 	Key            string  `env:"KEY"`
 	RateLimit      int     `env:"RATE_LIMIT"`
+	PprofAddress   string  `env:"PPROF_ADDRESS"`
 }
 
 func NewAgentConfig() (*AgentConfig, error) {
@@ -46,6 +47,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	flag.Var(&cfg.PollInterval, "p", "poll interval in seconds")
 	flag.StringVar(&cfg.Key, "k", "", "hash key")
 	flag.IntVar(&cfg.RateLimit, "l", 1, "rate limit for concurrent requests")
+	flag.StringVar(&cfg.PprofAddress, "pprof-address", "localhost:6061", "pprof server address")
 
 	flag.Parse()
 

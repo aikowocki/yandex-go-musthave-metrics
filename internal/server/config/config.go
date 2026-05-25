@@ -36,6 +36,7 @@ type ServerConfig struct {
 	Key             string `env:"KEY"`
 	AuditFile       string `env:"AUDIT_FILE"`
 	AuditURL        string `env:"AUDIT_URL"`
+	PprofAddress    string `env:"PPROF_ADDRESS"`
 }
 
 func NewServerConfig() (*ServerConfig, error) {
@@ -51,6 +52,7 @@ func NewServerConfig() (*ServerConfig, error) {
 	flag.StringVar(&cfg.Key, "k", "", "hash key")
 	flag.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disable file audit)")
 	flag.StringVar(&cfg.AuditURL, "audit-url", "", "URL for HTTP audit sink (empty disable HTTP audit)")
+	flag.StringVar(&cfg.PprofAddress, "pprof-address", "localhost:6060", "pprof address")
 
 	flag.Parse()
 	if err := env.Parse(cfg); err != nil {

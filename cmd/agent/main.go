@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -37,6 +39,13 @@ func main() {
 			log.Fatal("failed to load .env", err)
 		}
 	}
+
+	go func() {
+		log.Println("pprof starting", cfg.PprofAddress)
+		if err := http.ListenAndServe(cfg.PprofAddress, nil); err != nil {
+			log.Println("pprof server failed", err)
+		}
+	}()
 
 	storage := agent.NewLocalStorage()
 	client := agent.NewClient("http://"+cfg.ServerAddress, agent.WithServerKey(cfg.Key))

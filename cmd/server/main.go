@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/app"
@@ -37,6 +40,13 @@ func main() {
 	if err != nil {
 		zap.S().Fatalw("failed to load config", "error", err)
 	}
+
+	go func() {
+		zap.S().Infow("pprof starting", "address", cfg.PprofAddress)
+		if err := http.ListenAndServe(cfg.PprofAddress, nil); err != nil {
+			zap.S().Errorw("pprof server failed", "error", err)
+		}
+	}()
 
 	application, err := app.NewServerApp(ctx, cfg)
 	if err != nil {

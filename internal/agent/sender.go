@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
@@ -19,6 +20,8 @@ import (
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
+
+var gzipWriterPool = sync.Pool{New: func() any { return gzip.NewWriter(io.Discard) }}
 
 type ClientOption func(*Client)
 
@@ -61,13 +64,18 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 			}
 
 			var buf bytes.Buffer
-			w := gzip.NewWriter(&buf)
-			if _, err := w.Write(body); err != nil {
+			gz := gzipWriterPool.Get().(*gzip.Writer)
+			gz.Reset(&buf)
+			defer gzipWriterPool.Put(gz)
+
+			if _, err := gz.Write(body); err != nil {
+				gz.Close()
 				return err
 			}
-			if err := w.Close(); err != nil {
+			if err := gz.Close(); err != nil {
 				return err
 			}
+
 			r.Body = io.NopCloser(&buf)
 			r.ContentLength = int64(buf.Len())
 			return nil
@@ -125,8 +133,10 @@ func ReportJSON(storage MetricStorage, client *Client) {
 
 func CollectBatch(storage MetricStorage) []api.MetricDTO {
 	zap.S().Debugw("collecting metrics batch")
-	var metrics []api.MetricDTO
-	for name, value := range storage.SnapshotGauges() {
+	gauges := storage.SnapshotGauges()
+	counters := storage.SnapshotCounters()
+	metrics := make([]api.MetricDTO, 0, len(gauges)+len(counters))
+	for name, value := range gauges {
 		v := value
 		metrics = append(metrics, api.MetricDTO{
 			ID:    name,
@@ -135,7 +145,7 @@ func CollectBatch(storage MetricStorage) []api.MetricDTO {
 		})
 	}
 
-	for name, value := range storage.SnapshotCounters() {
+	for name, value := range counters {
 		v := value
 		metrics = append(metrics, api.MetricDTO{
 			ID:    name,

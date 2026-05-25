@@ -25,6 +25,7 @@ services:
     container_name: metrics-server
     ports:
       - "8080:8080"
+      - "6060:6060"
     environment:
       ADDRESS: 0.0.0.0:8080
       DATABASE_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
@@ -34,6 +35,7 @@ services:
       KEY: ${KEY:-}
       AUDIT_FILE: ${AUDIT_FILE:-}
       AUDIT_URL: ${AUDIT_URL:-}
+      PPROF_ADDRESS: 0.0.0.0:6060
     volumes:
       - server_data:/data
     depends_on:
@@ -46,7 +48,10 @@ services:
       context: ..
       dockerfile: deployments/Dockerfile.agent
     container_name: metrics-agent
+    ports:
+     - "6061:6061"
     environment:
+      PPROF_ADDRESS: 0.0.0.0:6061
       ADDRESS: server:8080
       REPORT_INTERVAL: "10"
       POLL_INTERVAL: "2"

@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/out/audit"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/config"
@@ -10,7 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func initAudit(cfg *config.ServerConfig) (port.AuditPublisher, func(), error) {
+func initAudit(cfg *config.ServerConfig) (port.AuditPublisher, func(context.Context), error) {
 	var observers []port.AuditObserver
 	var fileObs *audit.FileObserver
 	var err error
@@ -26,13 +25,11 @@ func initAudit(cfg *config.ServerConfig) (port.AuditPublisher, func(), error) {
 		observers = append(observers, audit.NewHTTPObserver(cfg.AuditURL))
 	}
 	if len(observers) == 0 {
-		return nil, func() {}, nil
+		return nil, func(context.Context) {}, nil
 	}
 
 	publisher := audit.NewPublisher(observers...)
-	closer := func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+	closer := func(ctx context.Context) {
 		if err := publisher.Close(ctx); err != nil {
 			zap.S().Warnw("audit publisher close", "err", err)
 		}

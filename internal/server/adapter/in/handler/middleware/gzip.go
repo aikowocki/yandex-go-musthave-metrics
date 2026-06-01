@@ -65,6 +65,9 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	if v := gzipReaderPool.Get(); v != nil {
 		zr := v.(*gzip.Reader)
 		if err := zr.Reset(r); err != nil {
+			// Reset не удался (например, тело — не валидный gzip)
+			// но сам reader исправен возвращаем его в пул.
+			gzipReaderPool.Put(zr)
 			return nil, err
 		}
 		return &compressReader{

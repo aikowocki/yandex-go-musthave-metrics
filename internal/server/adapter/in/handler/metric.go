@@ -20,16 +20,31 @@ type MetricUseCase interface {
 	UpdateBatch(ctx context.Context, metrics []entity.Metric) error
 }
 
-// MetricHandler обрабатывает HTTP-запросы для работы с метриками через URL-параметры.
-// Используется для эндпоинтов вида /update/{type}/{name}/{value} и /value/{type}/{name}.
-type MetricHandler struct {
+type baseMetricHandler struct {
 	uc    MetricUseCase
 	audit port.AuditPublisher
 }
 
+func (h *baseMetricHandler) publishAudit(r *http.Request, names []string) {
+	if h.audit == nil || len(names) == 0 {
+		return
+	}
+	h.audit.Publish(entity.AuditEvent{
+		Timestamp: time.Now().Unix(),
+		Metrics:   names,
+		IPAddress: clientIP(r),
+	})
+}
+
+// MetricHandler обрабатывает HTTP-запросы для работы с метриками через URL-параметры.
+// Используется для эндпоинтов вида /update/{type}/{name}/{value} и /value/{type}/{name}.
+type MetricHandler struct {
+	baseMetricHandler
+}
+
 // NewMetricHandler создаёт новый обработчик метрик с URL-параметрами.
 func NewMetricHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricHandler {
-	return &MetricHandler{uc: uc, audit: audit}
+	return &MetricHandler{baseMetricHandler: baseMetricHandler{uc: uc, audit: audit}}
 }
 
 func (h *MetricHandler) handleError(err error, w http.ResponseWriter) {
@@ -125,15 +140,4 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fmt.Fprint(w, "</ul></body></html>")
-}
-
-func (h *MetricHandler) publishAudit(r *http.Request, names []string) {
-	if h.audit == nil || len(names) == 0 {
-		return
-	}
-	h.audit.Publish(entity.AuditEvent{
-		Timestamp: time.Now().Unix(),
-		Metrics:   names,
-		IPAddress: clientIP(r),
-	})
 }

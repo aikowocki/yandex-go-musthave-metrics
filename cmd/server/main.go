@@ -52,7 +52,6 @@ func main() {
 	if err != nil {
 		zap.S().Fatalw("failed to init app", "error", err)
 	}
-	defer application.Close()
 
 	go application.Run(ctx)
 
@@ -61,8 +60,13 @@ func main() {
 	zap.S().Infow("shutting down...")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
+
+	// Сначала останавливаем приём HTTP-запросов, затем освобождаем ресурсы.
+	// Close вызываем безусловно (даже при ошибке Shutdown) и с тем же ctx,
+	// чтобы весь graceful shutdown укладывался в единый бюджет времени.
 	if err = application.Shutdown(shutdownCtx); err != nil {
-		zap.S().Fatalw("shutdown server error", "error", err)
+		zap.S().Errorw("shutdown server error", "error", err)
 	}
+	application.Close(shutdownCtx)
 	zap.S().Infow("server stopped")
 }

@@ -5,26 +5,16 @@ import (
 	"context"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
 )
-
-// MetricRepository — интерфейс хранилища метрик, используемый use case слоем.
-// Реализации могут быть in-memory, PostgreSQL и т.д.
-type MetricRepository interface {
-	GetGauge(ctx context.Context, name string) (*entity.GaugeMetric, error)
-	CreateOrUpdateGauge(context.Context, *entity.GaugeMetric) error
-	GetCounter(ctx context.Context, name string) (*entity.CounterMetric, error)
-	CreateOrUpdateCounter(context.Context, *entity.CounterMetric) error
-	GetAll(ctx context.Context) ([]entity.Metric, error)
-	SaveBatch(ctx context.Context, metrics []entity.Metric) error
-}
 
 // MetricUseCase реализует бизнес-логику сохранения, получения и пакетного обновления метрик.
 type MetricUseCase struct {
-	repo MetricRepository
+	repo port.MetricRepository
 }
 
 // NewMetricUseCase создаёт новый экземпляр MetricUseCase с указанным репозиторием.
-func NewMetricUseCase(repo MetricRepository) *MetricUseCase {
+func NewMetricUseCase(repo port.MetricRepository) *MetricUseCase {
 	return &MetricUseCase{repo: repo}
 }
 

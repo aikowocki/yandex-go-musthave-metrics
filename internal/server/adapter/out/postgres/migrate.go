@@ -33,7 +33,7 @@ func RunMigrations(dsn string) error {
 	if err != nil {
 		return fmt.Errorf("open db for migrations: %w", err)
 	}
-	defer db.Close() //nolint:errcheck
+	defer func() { _ = db.Close() }()
 
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {

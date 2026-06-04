@@ -13,9 +13,9 @@ import (
 
 func BenchmarkGzipCompression_Response(b *testing.B) {
 	payload := `{"id":"cpu","type":"gauge","value":3.14}`
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
-		w.Write([]byte(payload))
+		_, _ = w.Write([]byte(payload))
 	})
 	handler := WithGzipCompression()(inner)
 
@@ -32,13 +32,13 @@ func BenchmarkGzipDecompression_Request(b *testing.B) {
 	payload := `{"id":"cpu","type":"gauge","value":3.14}`
 	var compressed bytes.Buffer
 	gz := gzip.NewWriter(&compressed)
-	gz.Write([]byte(payload))
-	gz.Close()
+	_, _ = gz.Write([]byte(payload))
+	_ = gz.Close()
 	compressedBytes := compressed.Bytes()
 
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		buf := new(bytes.Buffer)
-		buf.ReadFrom(r.Body)
+		_, _ = buf.ReadFrom(r.Body)
 		w.WriteHeader(http.StatusOK)
 	})
 	handler := WithGzipCompression()(inner)
@@ -56,8 +56,8 @@ func BenchmarkHashValidation(b *testing.B) {
 	key := "test-secret-key"
 	payload := `{"id":"cpu","type":"gauge","value":3.14}`
 
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"status":"ok"}`))
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	})
 	handler := WithHashValidation(key)(inner)
 
@@ -84,9 +84,9 @@ func BenchmarkGzipCompression_LargePayload(b *testing.B) {
 	sb.WriteString("]")
 	payload := sb.String()
 
-	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
-		w.Write([]byte(payload))
+		_, _ = w.Write([]byte(payload))
 	})
 	handler := WithGzipCompression()(inner)
 

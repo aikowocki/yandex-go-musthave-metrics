@@ -30,7 +30,7 @@ func TestWithGzip_CompressResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set(constants.HeaderContentType, constants.ContentTypeJSON)
-				w.Write([]byte(`{"status":"ok"}`))
+				_, _ = w.Write([]byte(`{"status":"ok"}`))
 			})
 
 			wrapped := WithGzipCompression()(handler)
@@ -43,7 +43,7 @@ func TestWithGzip_CompressResponse(t *testing.T) {
 			wrapped.ServeHTTP(rec, req)
 
 			res := rec.Result()
-			defer res.Body.Close()
+			defer func() { _ = res.Body.Close() }()
 
 			assert.Equal(t, http.StatusOK, res.StatusCode)
 			contentEncoding := res.Header.Get(constants.HeaderContentEncoding)

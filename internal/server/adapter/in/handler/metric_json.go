@@ -8,6 +8,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
+	"go.uber.org/zap"
 )
 
 // MetricJSONHandler обрабатывает HTTP-запросы для работы с метриками через JSON body.
@@ -24,9 +25,11 @@ func NewMetricJSONHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricJS
 func writeJSONError(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(struct {
+	if err := json.NewEncoder(w).Encode(struct {
 		Error string `json:"error"`
-	}{Error: message})
+	}{Error: message}); err != nil {
+		zap.S().Debugw("failed to encode error response", "error", err)
+	}
 }
 
 func toEntity(dto api.MetricDTO) (entity.Metric, error) {
@@ -80,7 +83,9 @@ func (h *MetricJSONHandler) Update(w http.ResponseWriter, r *http.Request) {
 	h.publishAudit(r, []string{m.GetName()})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(toResponse(m))
+	if err := json.NewEncoder(w).Encode(toResponse(m)); err != nil {
+		zap.S().Debugw("failed to encode response", "error", err)
+	}
 }
 
 func (h *MetricJSONHandler) handleError(err error, w http.ResponseWriter, defaultMsg string) {
@@ -108,7 +113,9 @@ func (h *MetricJSONHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(toResponse(m))
+	if err := json.NewEncoder(w).Encode(toResponse(m)); err != nil {
+		zap.S().Debugw("failed to encode response", "error", err)
+	}
 }
 
 func (h *MetricJSONHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) {

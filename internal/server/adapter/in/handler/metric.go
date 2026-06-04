@@ -116,9 +116,9 @@ func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	switch v := m.(type) {
 	case *entity.GaugeMetric:
-		fmt.Fprint(w, strconv.FormatFloat(v.Value, 'f', -1, 64))
+		_, _ = fmt.Fprint(w, strconv.FormatFloat(v.Value, 'f', -1, 64))
 	case *entity.CounterMetric:
-		fmt.Fprint(w, strconv.FormatInt(v.Value, 10))
+		_, _ = fmt.Fprint(w, strconv.FormatInt(v.Value, 10))
 	}
 }
 
@@ -130,14 +130,14 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, "<html><body><h1>Metrics</h1><ul>")
+	_, _ = fmt.Fprint(w, "<html><body><h1>Metrics</h1><ul>")
 	for _, m := range metrics {
 		switch v := m.(type) {
 		case *entity.GaugeMetric:
-			fmt.Fprintf(w, "<li>%s (gauge): %s</li>", v.GetName(), strconv.FormatFloat(v.Value, 'f', -1, 64))
+			_, _ = fmt.Fprintf(w, "<li>%s (gauge): %s</li>", v.GetName(), strconv.FormatFloat(v.Value, 'f', -1, 64))
 		case *entity.CounterMetric:
-			fmt.Fprintf(w, "<li>%s (counter): %d</li>", v.GetName(), v.Value)
+			_, _ = fmt.Fprintf(w, "<li>%s (counter): %d</li>", v.GetName(), v.Value)
 		}
 	}
-	fmt.Fprint(w, "</ul></body></html>")
+	_, _ = fmt.Fprint(w, "</ul></body></html>")
 }

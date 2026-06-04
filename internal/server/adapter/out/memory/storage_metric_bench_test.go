@@ -12,18 +12,18 @@ func BenchmarkMetricStore_UpdateGauge(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.UpdateGauge(ctx, "cpu", float64(i))
+		_, _ = store.UpdateGauge(ctx, "cpu", float64(i))
 	}
 }
 
 func BenchmarkMetricStore_GetGauge(b *testing.B) {
 	store := NewMetricStorage()
 	ctx := context.Background()
-	store.UpdateGauge(ctx, "cpu", 3.14)
+	_, _ = store.UpdateGauge(ctx, "cpu", 3.14)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.GetGauge(ctx, "cpu")
+		_, _ = store.GetGauge(ctx, "cpu")
 	}
 }
 
@@ -33,18 +33,18 @@ func BenchmarkMetricStore_UpdateCounter(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.UpdateCounter(ctx, "hits", 1)
+		_, _ = store.UpdateCounter(ctx, "hits", 1)
 	}
 }
 
 func BenchmarkMetricStore_GetCounter(b *testing.B) {
 	store := NewMetricStorage()
 	ctx := context.Background()
-	store.UpdateCounter(ctx, "hits", 100)
+	_, _ = store.UpdateCounter(ctx, "hits", 100)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.GetCounter(ctx, "hits")
+		_, _ = store.GetCounter(ctx, "hits")
 	}
 }
 
@@ -63,7 +63,7 @@ func BenchmarkMetricStore_UpdateBatch(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.UpdateBatch(ctx, gauges, counters)
+		_ = store.UpdateBatch(ctx, gauges, counters)
 	}
 }
 
@@ -71,12 +71,12 @@ func BenchmarkMetricStore_GetAllGauges(b *testing.B) {
 	store := NewMetricStorage()
 	ctx := context.Background()
 	for i := 0; i < 30; i++ {
-		store.UpdateGauge(ctx, fmt.Sprintf("gauge_%d", i), float64(i))
+		_, _ = store.UpdateGauge(ctx, fmt.Sprintf("gauge_%d", i), float64(i))
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.GetAllGauges(ctx)
+		_, _ = store.GetAllGauges(ctx)
 	}
 }
 
@@ -84,11 +84,11 @@ func BenchmarkMetricStore_GetAllCounters(b *testing.B) {
 	store := NewMetricStorage()
 	ctx := context.Background()
 	for i := 0; i < 10; i++ {
-		store.UpdateCounter(ctx, fmt.Sprintf("counter_%d", i), int64(i))
+		_, _ = store.UpdateCounter(ctx, fmt.Sprintf("counter_%d", i), int64(i))
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.GetAllCounters(ctx)
+		_, _ = store.GetAllCounters(ctx)
 	}
 }

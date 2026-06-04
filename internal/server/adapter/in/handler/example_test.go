@@ -36,7 +36,7 @@ func ExampleMetricJSONHandler_Update() {
 	r.ServeHTTP(w, req)
 
 	var resp api.MetricDTO
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	fmt.Printf("Status: %d, ID: %s, Value: %.1f\n", w.Code, resp.ID, *resp.Value)
 	// Output: Status: 200, ID: cpu_usage, Value: 45.7
 }
@@ -44,7 +44,7 @@ func ExampleMetricJSONHandler_Update() {
 // ExampleMetricJSONHandler_Get демонстрирует получение метрики через JSON API.
 func ExampleMetricJSONHandler_Get() {
 	uc := newExampleUseCase()
-	uc.Save(context.Background(), entity.NewGaugeMetric("temperature", 36.6))
+	_ = uc.Save(context.Background(), entity.NewGaugeMetric("temperature", 36.6))
 
 	h := handler.NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
@@ -57,7 +57,7 @@ func ExampleMetricJSONHandler_Get() {
 	r.ServeHTTP(w, req)
 
 	var resp api.MetricDTO
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	fmt.Printf("Status: %d, ID: %s, Value: %.1f\n", w.Code, resp.ID, *resp.Value)
 	// Output: Status: 200, ID: temperature, Value: 36.6
 }

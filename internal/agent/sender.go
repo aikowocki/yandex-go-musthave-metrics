@@ -72,7 +72,7 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 			defer gzipWriterPool.Put(gz)
 
 			if _, err := gz.Write(body); err != nil {
-				gz.Close()
+				_ = gz.Close()
 				return err
 			}
 			if err := gz.Close(); err != nil {

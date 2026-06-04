@@ -43,8 +43,8 @@ func main() {
 
 	go func() {
 		zap.S().Infow("pprof starting", "address", cfg.PprofAddress)
-		if err := http.ListenAndServe(cfg.PprofAddress, nil); err != nil {
-			zap.S().Errorw("pprof server failed", "error", err)
+		if pprofErr := http.ListenAndServe(cfg.PprofAddress, nil); pprofErr != nil {
+			zap.S().Errorw("pprof server failed", "error", pprofErr)
 		}
 	}()
 

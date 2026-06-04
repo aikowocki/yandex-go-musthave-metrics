@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+// MetricStorage — интерфейс локального хранилища метрик агента.
+// Все методы потокобезопасны и могут вызываться из нескольких горутин одновременно.
 type MetricStorage interface {
 	SetGauge(name string, value float64)
 	GetGauge(name string) (float64, bool)
@@ -15,12 +17,14 @@ type MetricStorage interface {
 	SnapshotCounters() map[string]int64
 }
 
+// LocalMetrics — потокобезопасная реализация MetricStorage на основе map с sync.RWMutex.
 type LocalMetrics struct {
 	mu       sync.RWMutex
 	gauges   map[string]float64
 	counters map[string]int64
 }
 
+// NewLocalStorage создаёт новое пустое хранилище метрик.
 func NewLocalStorage() MetricStorage {
 	return &LocalMetrics{
 		gauges:   make(map[string]float64),
@@ -62,7 +66,7 @@ func (m *LocalMetrics) ForEachGauge(fn func(name string, value float64)) {
 	}
 }
 
-// SnapshotCounters возвращает копию gauges
+// SnapshotGauges возвращает копию gauges
 func (m *LocalMetrics) SnapshotGauges() map[string]float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()

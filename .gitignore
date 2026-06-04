@@ -33,3 +33,5 @@ backup
 tmp
 logs
 postgres_data
+
+cmd/.DS_Store

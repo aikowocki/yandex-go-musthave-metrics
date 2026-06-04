@@ -42,3 +42,56 @@ git fetch template && git checkout template/v2 .github
 - **Clean Architecture**
 - **Hexagonal Architecture**
 - **Layered Architecture**
+
+## Профилирование и оптимизация памяти (iter17)
+
+### Методика
+
+1. Подключён `net/http/pprof` на отдельном порту (`:6060` сервер, `:6061` агент)
+2. Нагрузка через `hey` (3×10000 запросов: `/updates`, `/update`, `/`)
+3. Профиль: `alloc_space` (cumulative allocations)
+
+### Результат оптимизации сервера
+
+```
+go tool pprof -top -diff_base=profiles/base.pprof profiles/result.pprof
+
+File: server
+Type: alloc_space
+Showing nodes accounting for -10592.07MB, 95.97% of 11037.23MB total
+
+      flat  flat%   sum%        cum   cum%
+-8619.52MB 78.09% 78.09% -10546.91MB 95.56%  compress/flate.NewWriter
+-1872.85MB 16.97% 95.06%  -1872.85MB 16.97%  compress/flate.(*compressor).initDeflate
+  -82.18MB  0.74% 95.81%    -82.18MB  0.74%  compress/flate.(*huffmanEncoder).generate
+  -29.02MB  0.26% 96.07%    -54.54MB  0.49%  compress/flate.newHuffmanBitWriter
+```
+
+**Снижение: -10,592 MB (96%)**
+
+### Результат оптимизации агента
+
+```
+go tool pprof -top -diff_base=profiles/agent_base.pprof profiles/agent_result.pprof
+
+File: agent
+Type: alloc_space
+Showing nodes accounting for -27734.09kB, 79.70% of 34799.20kB total
+
+         flat  flat%   sum%        cum   cum%
+-18954.31kB 54.47% 54.47% -20047.82kB 57.61%  compress/flate.NewWriter
+ -1093.51kB  3.14% 62.12%  -1093.51kB  3.14%  compress/flate.(*compressor).initDeflate
+ -1025.12kB  2.95% 64.97%  -2563.22kB  7.37%  gopsutil/cpu.TimesWithContext
+```
+
+**Снижение: -27,734 KB (80%)**
+
+### Что было оптимизировано
+
+| Оптимизация | Файл | Эффект |
+|-------------|------|--------|
+| `sync.Pool` для `gzip.Writer` (сервер) | `middleware/gzip.go` | -10.5 GB allocs |
+| `sync.Pool` для `gzip.Reader` (сервер) | `middleware/gzip.go` | -51 KB/req |
+| `sync.Pool` для `gzip.Writer` (агент) | `agent/sender.go` | -19 KB allocs |
+| Убрать `map[string]any` boxing | `agent/collector.go` | 0 allocs в CollectMetrics |
+| Pre-allocate слайса | `agent/sender.go` | -39% allocs в CollectBatch |

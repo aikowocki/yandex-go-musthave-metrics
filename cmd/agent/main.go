@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -10,14 +13,15 @@ import (
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/config"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/agent/config"
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/model"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if err := godotenv.Load(); err != nil {
 		log.Println("failed to load .env", "error", err)
@@ -29,25 +33,40 @@ func main() {
 	}
 	defer loggerCleanup()
 
-	cfg := config.NewAgentConfig()
+	cfg, err := config.NewAgentConfig()
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Fatal("failed to load .env", err)
+		}
+	}
+
+	go func() {
+		log.Println("pprof starting", cfg.PprofAddress)
+		if err := http.ListenAndServe(cfg.PprofAddress, nil); err != nil {
+			log.Println("pprof server failed", err)
+		}
+	}()
+
 	storage := agent.NewLocalStorage()
 	client := agent.NewClient("http://"+cfg.ServerAddress, agent.WithServerKey(cfg.Key))
 
-	jobs := make(chan []model.MetricDTO, cfg.RateLimit)
-	var wg sync.WaitGroup
+	jobs := make(chan []api.MetricDTO, cfg.RateLimit)
 
-	for i := 0; i < cfg.RateLimit; i++ { // запускаем N воркеров
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	// wgProducers — все, кто пишет в jobs или живёт по ctx (сборщики + отправитель).
+	// wgWorkers   — пул воркеров, читающих jobs.
+	// Порядок shutdown: cancel -> wgProducers.Wait -> close(jobs) -> wgWorkers.Wait.
+	var wgProducers, wgWorkers sync.WaitGroup
+
+	// Воркер-пул (консьюмеры).
+	for i := 0; i < cfg.RateLimit; i++ {
+		wgWorkers.Go(func() {
 			for job := range jobs {
 				agent.SendBatch(ctx, client, job)
 			}
-		}()
+		})
 	}
 
-	// Горутина для сбора метрик
-	go func() {
+	wgProducers.Go(func() {
 		pollTicker := time.NewTicker(time.Duration(cfg.PollInterval))
 		defer pollTicker.Stop()
 		for {
@@ -58,10 +77,10 @@ func main() {
 				return
 			}
 		}
-	}()
+	})
 
-	// Горутина для сбора системных метрик
-	go func() {
+	// Сборщик системных метрик.
+	wgProducers.Go(func() {
 		pollTicker := time.NewTicker(time.Duration(cfg.PollInterval))
 		defer pollTicker.Stop()
 		for {
@@ -72,32 +91,34 @@ func main() {
 				return
 			}
 		}
-	}()
+	})
 
-	// Горутина для отправки метрик
-	go func() {
+	// Отправитель — единственный продюсер jobs.
+	// Перед выходом делает финальный flush, чтобы не потерять последнюю пачку.
+	wgProducers.Go(func() {
 		ticker := time.NewTicker(time.Duration(cfg.ReportInterval))
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				metrics := agent.CollectBatch(storage)
-				if len(metrics) > 0 {
+				if metrics := agent.CollectBatch(storage); len(metrics) > 0 {
 					jobs <- metrics
 				}
 			case <-ctx.Done():
+				if metrics := agent.CollectBatch(storage); len(metrics) > 0 {
+					jobs <- metrics
+				}
 				return
 			}
 		}
-	}()
+	})
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	<-sigCh
-	cancel()
-	if metrics := agent.CollectBatch(storage); len(metrics) > 0 {
-		jobs <- metrics
-	}
-	close(jobs)
-	wg.Wait()
+
+	cancel()           // 1. сигнализируем всем горутинам остановиться
+	wgProducers.Wait() // 2. ждём, пока продюсеры закончат и больше никто не пишет в jobs
+	close(jobs)        // 3. безопасно закрываем канал
+	wgWorkers.Wait()   // 4. воркеры дочитают остатки и выйдут из for range
 }

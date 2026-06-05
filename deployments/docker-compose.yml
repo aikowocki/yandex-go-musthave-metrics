@@ -22,6 +22,10 @@ services:
     build:
       context: ..
       dockerfile: deployments/Dockerfile.server
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-N/A}
+        BUILD_DATE: ${BUILD_DATE:-N/A}
+        BUILD_COMMIT: ${BUILD_COMMIT:-N/A}
     container_name: metrics-server
     ports:
       - "8080:8080"
@@ -47,6 +51,10 @@ services:
     build:
       context: ..
       dockerfile: deployments/Dockerfile.agent
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-N/A}
+        BUILD_DATE: ${BUILD_DATE:-N/A}
+        BUILD_COMMIT: ${BUILD_COMMIT:-N/A}
     container_name: metrics-agent
     ports:
      - "6061:6061"

@@ -49,3 +49,22 @@ func TestPool_ConstraintEnforced(t *testing.T) {
 	require.Equal(t, "initial", obj.Name)
 	p.Put(obj)
 }
+
+func TestFuncPool_GetPut(t *testing.T) {
+	p := pool.NewFunc(
+		func() *testStruct { return &testStruct{} },
+		func(ts *testStruct) { ts.Name = ""; ts.Count = 0 },
+	)
+
+	obj := p.Get()
+	require.Equal(t, "", obj.Name)
+	require.Equal(t, 0, obj.Count)
+
+	obj.Name = "world"
+	obj.Count = 99
+	p.Put(obj)
+
+	obj2 := p.Get()
+	assert.Equal(t, "", obj2.Name)
+	assert.Equal(t, 0, obj2.Count)
+}

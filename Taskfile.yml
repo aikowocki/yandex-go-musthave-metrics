@@ -10,16 +10,28 @@ tasks:
       - task: build-agent
 
   build-server:
-    desc: Build server
-    dir: cmd/server
+    desc: Build server with build info
+    vars:
+      VERSION:
+        sh: git describe --tags --always 2>/dev/null || echo "N/A"
+      DATE:
+        sh: date -u +%Y-%m-%dT%H:%M:%SZ
+      COMMIT:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo "N/A"
     cmds:
-      - go build -o server *.go
+      - go build -ldflags "-X main.buildVersion={{.VERSION}} -X main.buildDate={{.DATE}} -X main.buildCommit={{.COMMIT}}" -o cmd/server/server ./cmd/server
 
   build-agent:
-    desc: Build agent
-    dir: cmd/agent
+    desc: Build agent with build info
+    vars:
+      VERSION:
+        sh: git describe --tags --always 2>/dev/null || echo "N/A"
+      DATE:
+        sh: date -u +%Y-%m-%dT%H:%M:%SZ
+      COMMIT:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo "N/A"
     cmds:
-      - go build -o agent *.go
+      - go build -ldflags "-X main.buildVersion={{.VERSION}} -X main.buildDate={{.DATE}} -X main.buildCommit={{.COMMIT}}" -o cmd/agent/agent ./cmd/agent
 
   test:
     desc: Run all tests
@@ -181,8 +193,15 @@ tasks:
 
   up:
     desc: "Поднять весь стек (postgres + server + agent)"
+    vars:
+      VERSION:
+        sh: git describe --tags --always 2>/dev/null || echo "N/A"
+      DATE:
+        sh: date -u +%Y-%m-%dT%H:%M:%SZ
+      COMMIT:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo "N/A"
     cmds:
-      - docker compose -f deployments/docker-compose.yml up -d --build
+      - BUILD_VERSION={{.VERSION}} BUILD_DATE={{.DATE}} BUILD_COMMIT={{.COMMIT}} docker compose -f deployments/docker-compose.yml up -d --build
 
   down:
     desc: "Остановить весь стек"

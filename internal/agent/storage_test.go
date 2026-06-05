@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -90,4 +91,48 @@ func TestLocalMetrics_SnapshotCounters(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, int64(1), v)
 
+}
+
+// TestLocalMetrics_ConcurrentAccess проверяет потокобезопасность хранилища
+// под одновременной нагрузкой на запись/чтение gauge и counter.
+// Запускать с -race: гонки в map обнаружит детектор
+func TestLocalMetrics_ConcurrentAccess(t *testing.T) {
+	storage := NewLocalStorage()
+
+	const (
+		writers     = 50
+		incrPerGoro = 100
+	)
+
+	var wg sync.WaitGroup
+
+	// Конкурентные writer'ы по counter — итог должен быть точным.
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < incrPerGoro; j++ {
+				storage.AddCounter("hits", 1)
+			}
+		}()
+	}
+
+	// Параллельно пишем gauge и читаем — для детектора гонок.
+	for i := 0; i < writers; i++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			for j := 0; j < incrPerGoro; j++ {
+				storage.SetGauge("cpu", float64(n))
+				_, _ = storage.GetGauge("cpu")
+				_, _ = storage.GetCounter("hits")
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	v, ok := storage.GetCounter("hits")
+	require.True(t, ok)
+	assert.Equal(t, int64(writers*incrPerGoro), v)
 }

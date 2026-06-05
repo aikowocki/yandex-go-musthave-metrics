@@ -104,7 +104,7 @@ func TestMetricHandler_Get(t *testing.T) {
 
 			assert.Equal(t, tt.wantStatusCode, w.Code)
 			if tt.wantBody != "" {
-				assert.Contains(t, w.Body.String(), tt.wantBody)
+				assert.Equal(t, tt.wantBody, w.Body.String())
 			}
 		})
 	}

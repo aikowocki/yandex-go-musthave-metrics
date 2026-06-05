@@ -147,3 +147,60 @@ go test -bench=. -benchmem -count=3 ./internal/...
 | GzipDecompression_Request | 51,692 | 10,571 | **-79.5%** | 26 | 21 |
 | CollectMetrics | 1,432 | 0 | **-100%** | 28 | 0 |
 | CollectBatch | 5,136 | 3,136 | **-39%** | 43 | 38 |
+
+
+## Покрытие тестами
+
+Общее покрытие: **62.0%** (с `-coverpkg=./...` для учёта кросс-пакетных вызовов)
+
+### Состав тестов
+
+- **Unit** — domain-сущности (`entity`), хранилища, usecase, хендлеры, middleware (gzip, hash), audit-публишеры, утилиты `pkg/*`
+- **Contract** — общий набор `runStorageTests` прогоняется и на `MetricStore`, и на `SyncBackupStorage`
+- **Concurrency** — параллельная нагрузка (50 горутин × 100 операций) на `LocalMetrics` (агент) и `MetricStore` (сервер), проверяется детектором гонок (`-race`)
+- **Backup** — синхронное и фоновое (по тикеру) сохранение, восстановление из файла, сохранение по отмене `context`
+- **Integration** — репозиторий PostgreSQL через `testcontainers` (поднимает `postgres:16` в Docker)
+- **Smoke** — поднятие приложения целиком и прогон HTTP-сценариев с graceful shutdown
+- **Example** — исполняемые примеры для godoc (`ExampleMetricJSONHandler_*`)
+- **Benchmark** — `-bench` для хранилищ, gzip и сбора метрик (см. раздел оптимизации)
+
+```bash
+# Все тесты
+go test ./...
+
+# С детектором гонок (concurrency-тесты)
+go test -race ./...
+
+# Запуск тестов с покрытием
+go test ./... -coverprofile=coverage.out -coverpkg=./...
+
+# HTML-отчёт в браузере
+go tool cover -html=coverage.out
+
+# Итоговая цифра
+go tool cover -func=coverage.out | tail -1
+```
+
+### Покрытие по пакетам
+
+| Пакет | Покрытие |
+|---|---|
+| `pkg/pool` | 100% |
+| `pkg/hash` | 100% |
+| `pkg/retry` | 100% |
+| `internal/server/entity` | 100% |
+| `cmd/staticlint/exitcheck` | 95.2% |
+| `internal/server/usecase` | 90.9% |
+| `internal/server/adapter/out/audit` | 86.2% |
+| `internal/agent` | 74.1% |
+| `internal/server/adapter/in/handler` | 70.4% |
+| `internal/server/adapter/in/handler/middleware` | 67.0% |
+| `internal/server/adapter/out/memory` | 62.3% |
+| `internal/server/app` | 50.9% |
+
+### Не покрыто (осознанно)
+
+- `cmd/*` — main-пакеты, покрываются автотестами Практикума
+- `internal/logger` — инициализация инфраструктуры (zap + файлы)
+- `internal/server/config` — `flag.Parse()` делает unit-тестирование невозможным
+- `postgres/pgx` — покрывается интеграционными тестами через testcontainers (учитывается с `-coverpkg`)

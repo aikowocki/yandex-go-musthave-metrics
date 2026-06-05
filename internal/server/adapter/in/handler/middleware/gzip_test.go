@@ -1,8 +1,12 @@
 package middleware
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
@@ -56,4 +60,51 @@ func TestWithGzip_CompressResponse(t *testing.T) {
 		})
 	}
 
+}
+
+func TestWithGzip_DecompressRequest(t *testing.T) {
+	var receivedBody []byte
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		receivedBody = body
+		w.WriteHeader(http.StatusOK)
+	})
+
+	wrapped := WithGzipCompression()(inner)
+
+	// Подготавливаем gzip-сжатое тело.
+	original := `{"id":"cpu","type":"gauge","value":3.14}`
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	_, err := gz.Write([]byte(original))
+	assert.NoError(t, err)
+	assert.NoError(t, gz.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/update", &buf)
+	req.Header.Set("Content-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+	wrapped.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, original, string(receivedBody))
+}
+
+func TestWithGzip_InvalidGzipBody(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	wrapped := WithGzipCompression()(inner)
+
+	// Отправляем невалидный gzip.
+	req := httptest.NewRequest(http.MethodPost, "/update", strings.NewReader("not gzip at all"))
+	req.Header.Set("Content-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+	wrapped.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

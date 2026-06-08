@@ -139,7 +139,7 @@ func TestSendBatch_SendsToUpdatesEndpoint(t *testing.T) {
 	storage.AddCounter("hits", 10)
 
 	client := NewClient(server.URL)
-	SendBatch(context.Background(), client, CollectBatch(storage))
+	SendBatch(t.Context(), client, CollectBatch(storage))
 
 	assert.Equal(t, "/updates", capturedPath)
 }
@@ -154,7 +154,7 @@ func TestSendBatch_EmptyStorage_NoRequest(t *testing.T) {
 
 	storage := NewLocalStorage() // пустое хранилище
 	client := NewClient(server.URL)
-	SendBatch(context.Background(), client, CollectBatch(storage))
+	SendBatch(t.Context(), client, CollectBatch(storage))
 
 	assert.False(t, requestMade, "should not send request for empty storage")
 }
@@ -174,7 +174,7 @@ func TestSendBatch_NoRetryOnServerError(t *testing.T) {
 	}
 
 	client := NewClient(server.URL)
-	SendBatch(context.Background(), client, metrics)
+	SendBatch(t.Context(), client, metrics)
 
 	assert.Equal(t, int32(1), atomic.LoadInt32(&calls),
 		"server error (500) is not a net error, SendBatch must not retry")

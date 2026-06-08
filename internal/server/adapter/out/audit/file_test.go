@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"strings"
@@ -27,7 +26,7 @@ func TestFileObserver_WritesJSONLines(t *testing.T) {
 	}
 
 	for _, e := range events {
-		require.NoError(t, obs.Notify(context.Background(), e))
+		require.NoError(t, obs.Notify(t.Context(), e))
 	}
 
 	data, err := os.ReadFile(f.Name())

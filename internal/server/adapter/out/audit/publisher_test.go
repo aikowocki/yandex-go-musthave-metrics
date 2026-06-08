@@ -68,7 +68,7 @@ func TestPublisher_NilObserverIgnored(t *testing.T) {
 
 func TestPublisher_CloseIdempotent(t *testing.T) {
 	pub := NewPublisher(&spyObserver{})
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, pub.Close(ctx))
 	require.NoError(t, pub.Close(ctx))
 }

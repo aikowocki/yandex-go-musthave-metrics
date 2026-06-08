@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"context"
 	"testing"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
@@ -10,7 +9,7 @@ import (
 
 func runStorageTests(t *testing.T, storage MetricStorage) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("UpdateGauge_Upsert", func(t *testing.T) {
 		_, err := storage.UpdateGauge(ctx, "cpu", 0.5)

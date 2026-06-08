@@ -13,7 +13,7 @@ import (
 
 func TestDo_SuccessOnFirstAttempt(t *testing.T) {
 	calls := 0
-	err := retry.Do(context.Background(), func() error {
+	err := retry.Do(t.Context(), func() error {
 		calls++
 		return nil
 	}, retry.WithDelays(10*time.Millisecond))
@@ -24,7 +24,7 @@ func TestDo_SuccessOnFirstAttempt(t *testing.T) {
 
 func TestDo_SuccessAfterRetry(t *testing.T) {
 	calls := 0
-	err := retry.Do(context.Background(), func() error {
+	err := retry.Do(t.Context(), func() error {
 		calls++
 		if calls < 3 {
 			return errors.New("temporary")
@@ -39,7 +39,7 @@ func TestDo_SuccessAfterRetry(t *testing.T) {
 func TestDo_AllRetriesFailed(t *testing.T) {
 	errPermanent := errors.New("permanent")
 	calls := 0
-	err := retry.Do(context.Background(), func() error {
+	err := retry.Do(t.Context(), func() error {
 		calls++
 		return errPermanent
 	}, retry.WithDelays(10*time.Millisecond, 10*time.Millisecond))
@@ -52,7 +52,7 @@ func TestDo_RetryIfFalse_StopsImmediately(t *testing.T) {
 	calls := 0
 	errNonRetryable := errors.New("non-retryable")
 
-	err := retry.Do(context.Background(), func() error {
+	err := retry.Do(t.Context(), func() error {
 		calls++
 		return errNonRetryable
 	},

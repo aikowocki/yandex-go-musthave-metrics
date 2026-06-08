@@ -12,7 +12,14 @@ type FuncPool[T any] struct {
 }
 
 // NewFunc создаёт FuncPool с фабрикой создания и функцией очистки.
+// Паникует, если newFn или resetFn равны nil
 func NewFunc[T any](newFn func() T, resetFn func(T)) *FuncPool[T] {
+	if newFn == nil {
+		panic("pool: NewFunc requires a non-nil newFn")
+	}
+	if resetFn == nil {
+		panic("pool: NewFunc requires a non-nil resetFn")
+	}
 	return &FuncPool[T]{
 		pool: sync.Pool{
 			New: func() any {

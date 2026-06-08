@@ -92,7 +92,7 @@ func TestMetricHandler_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uc := newTestUseCase()
-			require.NoError(t, tt.seed(context.Background(), uc))
+			require.NoError(t, tt.seed(t.Context(), uc))
 
 			h := NewMetricHandler(uc, nil)
 			r := chi.NewRouter()
@@ -112,7 +112,7 @@ func TestMetricHandler_Get(t *testing.T) {
 
 func TestMetricHandler_List(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("cpu", 0.5)))
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("memory", 128.0)))
@@ -264,7 +264,7 @@ func TestMetricJSONHandler_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uc := newTestUseCase()
-			require.NoError(t, tt.seed(context.Background(), uc))
+			require.NoError(t, tt.seed(t.Context(), uc))
 
 			h := NewMetricJSONHandler(uc, nil)
 			r := chi.NewRouter()
@@ -285,7 +285,7 @@ func TestMetricJSONHandler_Get(t *testing.T) {
 
 func TestMetricJSONHandler_Get_ResponseBody(t *testing.T) {
 	uc := newTestUseCase()
-	require.NoError(t, uc.Save(context.Background(), entity.NewGaugeMetric("cpu", 42.5)))
+	require.NoError(t, uc.Save(t.Context(), entity.NewGaugeMetric("cpu", 42.5)))
 
 	h := NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
@@ -357,7 +357,7 @@ func TestMetricJSONHandler_BatchUpdate_CounterAccumulates(t *testing.T) {
 	assert.Equal(t, http.StatusOK, send(`[{"id":"hits","type":"counter","delta":10}]`))
 	assert.Equal(t, http.StatusOK, send(`[{"id":"hits","type":"counter","delta":5}]`))
 
-	got, err := uc.Get(context.Background(), string(entity.MetricTypeCounter), "hits")
+	got, err := uc.Get(t.Context(), string(entity.MetricTypeCounter), "hits")
 	require.NoError(t, err)
 	c, ok := got.(*entity.CounterMetric)
 	require.True(t, ok)

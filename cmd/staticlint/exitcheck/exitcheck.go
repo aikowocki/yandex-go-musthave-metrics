@@ -50,17 +50,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					return true
 				}
 
-				// // Получим то что слева от точки (название пакета)
-				// ident, ok := sel.X.(*ast.Ident)
-				// if !ok {
-				// 	return true
-				// }
-
-				// // Если это os.Exit — репортим ошибку.
-				// if ident.Name == "os" && sel.Sel.Name == "Exit" {
-				// 	pass.Reportf(call.Pos(), "прямой вызов os.Exit запрещён в функции main")
-				// }
-
 				// Вместо проверки имени — проверяем на какой объект ссылается sel.Sel
 				obj := pass.TypesInfo.ObjectOf(sel.Sel)
 				if obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == "os" && obj.Name() == "Exit" {

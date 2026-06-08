@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,7 +12,21 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
+
+// metricsListItem строка в HTML-списке метрик.
+type metricsListItem struct {
+	Name  string
+	Type  string
+	Value string
+}
+
+// metricsListTmpl рендерит список метрик.
+var metricsListTmpl = template.Must(template.New("metrics").Parse(
+	`<html><body><h1>Metrics</h1><ul>` +
+		`{{range .}}<li>{{.Name}} ({{.Type}}): {{.Value}}</li>{{end}}` +
+		`</ul></body></html>`))
 
 type MetricUseCase interface {
 	Save(ctx context.Context, metric entity.Metric) error
@@ -130,14 +145,25 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	_, _ = fmt.Fprint(w, "<html><body><h1>Metrics</h1><ul>")
+	items := make([]metricsListItem, 0, len(metrics))
 	for _, m := range metrics {
 		switch v := m.(type) {
 		case *entity.GaugeMetric:
-			_, _ = fmt.Fprintf(w, "<li>%s (gauge): %s</li>", v.GetName(), strconv.FormatFloat(v.Value, 'f', -1, 64))
+			items = append(items, metricsListItem{
+				Name:  v.GetName(),
+				Type:  "gauge",
+				Value: strconv.FormatFloat(v.Value, 'f', -1, 64),
+			})
 		case *entity.CounterMetric:
-			_, _ = fmt.Fprintf(w, "<li>%s (counter): %d</li>", v.GetName(), v.Value)
+			items = append(items, metricsListItem{
+				Name:  v.GetName(),
+				Type:  "counter",
+				Value: strconv.FormatInt(v.Value, 10),
+			})
 		}
 	}
-	_, _ = fmt.Fprint(w, "</ul></body></html>")
+
+	if err := metricsListTmpl.Execute(w, items); err != nil {
+		zap.S().Errorw("failed to render metrics list", "error", err)
+	}
 }

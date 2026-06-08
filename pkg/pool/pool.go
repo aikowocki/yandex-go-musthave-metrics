@@ -15,7 +15,11 @@ type Pool[T Resetter] struct {
 }
 
 // New создаёт и возвращает указатель на Pool.
+// Паникует, если newFn равен nil
 func New[T Resetter](newFunc func() T) *Pool[T] {
+	if newFunc == nil {
+		panic("pool: New requires a non-nil newFunc")
+	}
 	return &Pool[T]{
 		pool: sync.Pool{
 			New: func() any {

@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"context"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -26,7 +25,7 @@ func TestSyncBackupStorage(t *testing.T) {
 // под одновременной нагрузкой. Запускать с -race для обнаружения гонок;
 func TestMetricStore_ConcurrentAccess(t *testing.T) {
 	store := NewMetricStorage()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	const (
 		workers     = 50

@@ -245,16 +245,15 @@ func pointerResetCode(access string, elemType types.Type) string {
 	var buf bytes.Buffer
 	_, _ = fmt.Fprintf(&buf, "\tif %s != nil {\n", access)
 
-	switch t := elemType.Underlying().(type) {
+	switch elemType.Underlying().(type) {
 	case *types.Basic:
-		_, _ = fmt.Fprintf(&buf, "\t\t*%s = %s\n", access, zeroForBasic(t))
+		basic := elemType.Underlying().(*types.Basic)
+		_, _ = fmt.Fprintf(&buf, "\t\t*%s = %s\n", access, zeroForBasic(basic))
 
 	case *types.Slice:
-		_ = t
 		_, _ = fmt.Fprintf(&buf, "\t\t*%s = (*%s)[:0]\n", access, access)
 
 	case *types.Map:
-		_ = t
 		_, _ = fmt.Fprintf(&buf, "\t\tclear(*%s)\n", access)
 
 	case *types.Struct:

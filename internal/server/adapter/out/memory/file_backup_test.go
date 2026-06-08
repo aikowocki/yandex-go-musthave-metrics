@@ -12,7 +12,7 @@ import (
 )
 
 func TestFileBackup_SaveRestore(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "backup.json")
 
 	// Заполняем метриками и сохраняем.
@@ -64,7 +64,7 @@ func TestFileBackup_RestoreNoFile(t *testing.T) {
 // TestFileBackup_SyncSaveOnUpdate проверяет, что SyncBackupStorage
 // действительно пишет файл после каждого UpdateGauge/UpdateCounter/UpdateBatch.
 func TestFileBackup_SyncSaveOnUpdate(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	path := filepath.Join(t.TempDir(), "backup.json")
 
 	store := NewMetricStorage()

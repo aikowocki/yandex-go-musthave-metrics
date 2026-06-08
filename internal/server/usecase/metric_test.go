@@ -1,7 +1,6 @@
 package usecase_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/out/memory"
@@ -19,7 +18,7 @@ func newTestUseCase() *usecase.MetricUseCase {
 
 func TestMetricUseCase_SaveAndGetGauge(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err := uc.Save(ctx, entity.NewGaugeMetric("cpu", 42.5))
 	require.NoError(t, err)
@@ -35,7 +34,7 @@ func TestMetricUseCase_SaveAndGetGauge(t *testing.T) {
 
 func TestMetricUseCase_SaveAndGetCounter(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	err := uc.Save(ctx, entity.NewCounterMetric("hits", 10))
 	require.NoError(t, err)
@@ -53,7 +52,7 @@ func TestMetricUseCase_SaveAndGetCounter(t *testing.T) {
 
 func TestMetricUseCase_GetNotFound(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	_, err := uc.Get(ctx, "gauge", "nonexistent")
 	assert.ErrorIs(t, err, entity.ErrMetricNotFound)
@@ -64,7 +63,7 @@ func TestMetricUseCase_GetNotFound(t *testing.T) {
 
 func TestMetricUseCase_GetInvalidType(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	_, err := uc.Get(ctx, "unknown", "cpu")
 	assert.ErrorIs(t, err, entity.ErrInvalidMetricType)
@@ -72,7 +71,7 @@ func TestMetricUseCase_GetInvalidType(t *testing.T) {
 
 func TestMetricUseCase_GaugeOverwrites(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("temp", 36.6)))
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("temp", 37.0)))
@@ -84,7 +83,7 @@ func TestMetricUseCase_GaugeOverwrites(t *testing.T) {
 
 func TestMetricUseCase_GetAll(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("cpu", 1.1)))
 	require.NoError(t, uc.Save(ctx, entity.NewGaugeMetric("mem", 2.2)))
@@ -97,7 +96,7 @@ func TestMetricUseCase_GetAll(t *testing.T) {
 
 func TestMetricUseCase_UpdateBatch(t *testing.T) {
 	uc := newTestUseCase()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	batch := []entity.Metric{
 		entity.NewGaugeMetric("cpu", 55.5),

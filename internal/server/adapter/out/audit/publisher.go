@@ -22,12 +22,16 @@ type Publisher struct {
 	subs []*subscription
 	wg   sync.WaitGroup
 
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	mu     sync.Mutex
 	closed bool
 }
 
 func NewPublisher(observers ...port.AuditObserver) *Publisher {
-	p := &Publisher{}
+	ctx, cancel := context.WithCancel(context.Background())
+	p := &Publisher{ctx: ctx, cancel: cancel}
 	for _, o := range observers {
 		if o == nil {
 			continue
@@ -83,8 +87,12 @@ func (p *Publisher) Close(ctx context.Context) error {
 
 	select {
 	case <-done:
+		p.cancel()
 		return nil
 	case <-ctx.Done():
+		// Дедлайн shutdown истёк: форсируем отмену контекста паблишера,
+		// чтобы прервать зависшие Notify-вызовы у наблюдателей.
+		p.cancel()
 		return ctx.Err()
 	}
 }
@@ -92,7 +100,7 @@ func (p *Publisher) Close(ctx context.Context) error {
 func (p *Publisher) dispatch(sub *subscription) {
 	defer p.wg.Done()
 	for event := range sub.ch {
-		if err := sub.observer.Notify(context.Background(), event); err != nil {
+		if err := sub.observer.Notify(p.ctx, event); err != nil {
 			zap.S().Warnw("audit: notify failed", "observer", sub.observer.Name(), "err", err)
 		}
 	}

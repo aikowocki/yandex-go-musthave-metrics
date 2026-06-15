@@ -10,18 +10,21 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
 	pkghash "github.com/aikowocki/yandex-go-musthave-metrics/pkg/hash"
+	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/pool"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
 )
 
-var gzipWriterPool = sync.Pool{New: func() any { return gzip.NewWriter(io.Discard) }}
+var gzipWriterPool = pool.NewFunc(
+	func() *gzip.Writer { return gzip.NewWriter(io.Discard) },
+	func(gz *gzip.Writer) { gz.Reset(io.Discard) },
+)
 
 type ClientOption func(*Client)
 
@@ -67,12 +70,13 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 			}
 
 			var buf bytes.Buffer
-			gz := gzipWriterPool.Get().(*gzip.Writer)
+
+			gz := gzipWriterPool.Get()
 			gz.Reset(&buf)
 			defer gzipWriterPool.Put(gz)
 
 			if _, err := gz.Write(body); err != nil {
-				gz.Close()
+				_ = gz.Close()
 				return err
 			}
 			if err := gz.Close(); err != nil {

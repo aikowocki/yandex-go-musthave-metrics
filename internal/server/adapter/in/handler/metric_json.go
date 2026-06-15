@@ -4,61 +4,56 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
+	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
+	"go.uber.org/zap"
 )
 
 // MetricJSONHandler обрабатывает HTTP-запросы для работы с метриками через JSON body.
 // Используется для эндпоинтов POST /update, POST /updates, POST /value.
 type MetricJSONHandler struct {
-	uc    MetricUseCase
-	audit port.AuditPublisher
+	baseMetricHandler
 }
 
 // NewMetricJSONHandler создаёт новый обработчик метрик с JSON body.
 func NewMetricJSONHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricJSONHandler {
-	return &MetricJSONHandler{uc: uc, audit: audit}
-}
-
-type metricDTO struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
+	return &MetricJSONHandler{baseMetricHandler: baseMetricHandler{uc: uc, audit: audit}}
 }
 
 func writeJSONError(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(struct {
+	if err := json.NewEncoder(w).Encode(struct {
 		Error string `json:"error"`
-	}{Error: message})
+	}{Error: message}); err != nil {
+		zap.S().Debugw("failed to encode error response", "error", err)
+	}
 }
 
-func (req *metricDTO) toEntity() (entity.Metric, error) {
-	if req.ID == "" {
+func toEntity(dto api.MetricDTO) (entity.Metric, error) {
+	if dto.ID == "" {
 		return nil, entity.ErrEmptyMetricName
 	}
-	switch entity.MetricType(req.MType) {
+	switch entity.MetricType(dto.MType) {
 	case entity.MetricTypeGauge:
-		if req.Value == nil {
+		if dto.Value == nil {
 			return nil, entity.ErrInvalidMetricValue
 		}
-		return entity.NewGaugeMetric(req.ID, *req.Value), nil
+		return entity.NewGaugeMetric(dto.ID, *dto.Value), nil
 	case entity.MetricTypeCounter:
-		if req.Delta == nil {
+		if dto.Delta == nil {
 			return nil, entity.ErrInvalidMetricValue
 		}
-		return entity.NewCounterMetric(req.ID, *req.Delta), nil
+		return entity.NewCounterMetric(dto.ID, *dto.Delta), nil
 	default:
 		return nil, entity.ErrInvalidMetricType
 	}
 }
 
-func toResponse(m entity.Metric) metricDTO {
-	resp := metricDTO{ID: m.GetName(), MType: string(m.GetType())}
+func toResponse(m entity.Metric) api.MetricDTO {
+	resp := api.MetricDTO{ID: m.GetName(), MType: string(m.GetType())}
 	switch v := m.(type) {
 	case *entity.GaugeMetric:
 		resp.Value = &v.Value
@@ -69,12 +64,12 @@ func toResponse(m entity.Metric) metricDTO {
 }
 
 func (h *MetricJSONHandler) Update(w http.ResponseWriter, r *http.Request) {
-	var dto metricDTO
+	var dto api.MetricDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		writeJSONError(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
-	m, err := dto.toEntity()
+	m, err := toEntity(dto)
 	if err != nil {
 		h.handleError(err, w, "failed to update metric")
 		return
@@ -88,7 +83,9 @@ func (h *MetricJSONHandler) Update(w http.ResponseWriter, r *http.Request) {
 	h.publishAudit(r, []string{m.GetName()})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(toResponse(m))
+	if err := json.NewEncoder(w).Encode(toResponse(m)); err != nil {
+		zap.S().Debugw("failed to encode response", "error", err)
+	}
 }
 
 func (h *MetricJSONHandler) handleError(err error, w http.ResponseWriter, defaultMsg string) {
@@ -105,7 +102,7 @@ func (h *MetricJSONHandler) handleError(err error, w http.ResponseWriter, defaul
 }
 
 func (h *MetricJSONHandler) Get(w http.ResponseWriter, r *http.Request) {
-	var dto metricDTO
+	var dto api.MetricDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		writeJSONError(w, "invalid JSON", http.StatusBadRequest)
 		return
@@ -116,11 +113,13 @@ func (h *MetricJSONHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(toResponse(m))
+	if err := json.NewEncoder(w).Encode(toResponse(m)); err != nil {
+		zap.S().Debugw("failed to encode response", "error", err)
+	}
 }
 
 func (h *MetricJSONHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) {
-	var dtos []metricDTO
+	var dtos []api.MetricDTO
 
 	if err := json.NewDecoder(r.Body).Decode(&dtos); err != nil {
 		writeJSONError(w, "invalid JSON", http.StatusBadRequest)
@@ -129,7 +128,7 @@ func (h *MetricJSONHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) 
 
 	metrics := make([]entity.Metric, 0, len(dtos))
 	for _, dto := range dtos {
-		m, err := dto.toEntity()
+		m, err := toEntity(dto)
 		if err != nil {
 			h.handleError(err, w, "failed to batch update metrics")
 			return
@@ -150,15 +149,4 @@ func (h *MetricJSONHandler) BatchUpdate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
-}
-
-func (h *MetricJSONHandler) publishAudit(r *http.Request, names []string) {
-	if h.audit == nil || len(names) == 0 {
-		return
-	}
-	h.audit.Publish(entity.AuditEvent{
-		Timestamp: time.Now().Unix(),
-		Metrics:   names,
-		IPAddress: clientIP(r),
-	})
 }

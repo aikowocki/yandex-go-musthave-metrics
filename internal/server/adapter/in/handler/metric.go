@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,7 +12,21 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/port"
 	"github.com/go-chi/chi/v5"
+	"go.uber.org/zap"
 )
+
+// metricsListItem строка в HTML-списке метрик.
+type metricsListItem struct {
+	Name  string
+	Type  string
+	Value string
+}
+
+// metricsListTmpl рендерит список метрик.
+var metricsListTmpl = template.Must(template.New("metrics").Parse(
+	`<html><body><h1>Metrics</h1><ul>` +
+		`{{range .}}<li>{{.Name}} ({{.Type}}): {{.Value}}</li>{{end}}` +
+		`</ul></body></html>`))
 
 type MetricUseCase interface {
 	Save(ctx context.Context, metric entity.Metric) error
@@ -20,16 +35,31 @@ type MetricUseCase interface {
 	UpdateBatch(ctx context.Context, metrics []entity.Metric) error
 }
 
-// MetricHandler обрабатывает HTTP-запросы для работы с метриками через URL-параметры.
-// Используется для эндпоинтов вида /update/{type}/{name}/{value} и /value/{type}/{name}.
-type MetricHandler struct {
+type baseMetricHandler struct {
 	uc    MetricUseCase
 	audit port.AuditPublisher
 }
 
+func (h *baseMetricHandler) publishAudit(r *http.Request, names []string) {
+	if h.audit == nil || len(names) == 0 {
+		return
+	}
+	h.audit.Publish(entity.AuditEvent{
+		Timestamp: time.Now().Unix(),
+		Metrics:   names,
+		IPAddress: clientIP(r),
+	})
+}
+
+// MetricHandler обрабатывает HTTP-запросы для работы с метриками через URL-параметры.
+// Используется для эндпоинтов вида /update/{type}/{name}/{value} и /value/{type}/{name}.
+type MetricHandler struct {
+	baseMetricHandler
+}
+
 // NewMetricHandler создаёт новый обработчик метрик с URL-параметрами.
 func NewMetricHandler(uc MetricUseCase, audit port.AuditPublisher) *MetricHandler {
-	return &MetricHandler{uc: uc, audit: audit}
+	return &MetricHandler{baseMetricHandler: baseMetricHandler{uc: uc, audit: audit}}
 }
 
 func (h *MetricHandler) handleError(err error, w http.ResponseWriter) {
@@ -101,9 +131,9 @@ func (h *MetricHandler) Get(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	switch v := m.(type) {
 	case *entity.GaugeMetric:
-		fmt.Fprint(w, strconv.FormatFloat(v.Value, 'f', -1, 64))
+		_, _ = fmt.Fprint(w, strconv.FormatFloat(v.Value, 'f', -1, 64))
 	case *entity.CounterMetric:
-		fmt.Fprint(w, strconv.FormatInt(v.Value, 10))
+		_, _ = fmt.Fprint(w, strconv.FormatInt(v.Value, 10))
 	}
 }
 
@@ -115,25 +145,25 @@ func (h *MetricHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, "<html><body><h1>Metrics</h1><ul>")
+	items := make([]metricsListItem, 0, len(metrics))
 	for _, m := range metrics {
 		switch v := m.(type) {
 		case *entity.GaugeMetric:
-			fmt.Fprintf(w, "<li>%s (gauge): %s</li>", v.GetName(), strconv.FormatFloat(v.Value, 'f', -1, 64))
+			items = append(items, metricsListItem{
+				Name:  v.GetName(),
+				Type:  "gauge",
+				Value: strconv.FormatFloat(v.Value, 'f', -1, 64),
+			})
 		case *entity.CounterMetric:
-			fmt.Fprintf(w, "<li>%s (counter): %d</li>", v.GetName(), v.Value)
+			items = append(items, metricsListItem{
+				Name:  v.GetName(),
+				Type:  "counter",
+				Value: strconv.FormatInt(v.Value, 10),
+			})
 		}
 	}
-	fmt.Fprint(w, "</ul></body></html>")
-}
 
-func (h *MetricHandler) publishAudit(r *http.Request, names []string) {
-	if h.audit == nil || len(names) == 0 {
-		return
+	if err := metricsListTmpl.Execute(w, items); err != nil {
+		zap.S().Errorw("failed to render metrics list", "error", err)
 	}
-	h.audit.Publish(entity.AuditEvent{
-		Timestamp: time.Now().Unix(),
-		Metrics:   names,
-		IPAddress: clientIP(r),
-	})
 }

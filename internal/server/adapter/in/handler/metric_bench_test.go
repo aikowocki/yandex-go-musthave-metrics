@@ -28,7 +28,7 @@ func BenchmarkMetricJSONHandler_Update(b *testing.B) {
 
 func BenchmarkMetricJSONHandler_Get(b *testing.B) {
 	uc := newTestUseCase()
-	uc.Save(context.Background(), entity.NewGaugeMetric("cpu", 42.5))
+	_ = uc.Save(context.Background(), entity.NewGaugeMetric("cpu", 42.5))
 	h := NewMetricJSONHandler(uc, nil)
 
 	body := []byte(`{"id":"cpu","type":"gauge"}`)
@@ -75,10 +75,10 @@ func BenchmarkMetricHandler_List(b *testing.B) {
 	ctx := context.Background()
 	// предзаполняем
 	for i := 0; i < 30; i++ {
-		uc.Save(ctx, entity.NewGaugeMetric(fmt.Sprintf("gauge_%d", i), float64(i)))
+		_ = uc.Save(ctx, entity.NewGaugeMetric(fmt.Sprintf("gauge_%d", i), float64(i)))
 	}
 	for i := 0; i < 10; i++ {
-		uc.Save(ctx, entity.NewCounterMetric(fmt.Sprintf("counter_%d", i), int64(i)))
+		_ = uc.Save(ctx, entity.NewCounterMetric(fmt.Sprintf("counter_%d", i), int64(i)))
 	}
 
 	h := NewMetricHandler(uc, nil)

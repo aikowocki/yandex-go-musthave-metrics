@@ -2,8 +2,10 @@ package postgres_pgx
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"go.uber.org/zap"
 )
 
 type txKey struct{}
@@ -26,7 +28,12 @@ func (m *TxManager) Do(ctx context.Context, fn func(ctx context.Context) error) 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx) //nolint:errcheck
+
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			zap.S().Warnw("tx rollback failed", "err", rbErr)
+		}
+	}()
 
 	ctxWithTx := context.WithValue(ctx, txKey{}, tx)
 	if err := fn(ctxWithTx); err != nil {

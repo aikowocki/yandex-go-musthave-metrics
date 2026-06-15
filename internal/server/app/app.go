@@ -13,11 +13,13 @@ import (
 
 type ServerApp struct {
 	server *http.Server
-	closer func()
+	closer func(context.Context)
 }
 
-func (a *ServerApp) Close() {
-	a.closer()
+// Close освобождает ресурсы приложения (audit publisher, storage),
+// используя ctx как общий бюджет времени на graceful shutdown.
+func (a *ServerApp) Close(ctx context.Context) {
+	a.closer(ctx)
 }
 
 func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, error) {
@@ -51,8 +53,8 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 		Handler: r,
 	}
 
-	closer := func() {
-		auditClose()
+	closer := func(ctx context.Context) {
+		auditClose(ctx)
 		storage.closer()
 	}
 

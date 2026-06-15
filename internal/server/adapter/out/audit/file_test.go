@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"strings"
@@ -15,11 +14,11 @@ import (
 func TestFileObserver_WritesJSONLines(t *testing.T) {
 	f, err := os.CreateTemp(t.TempDir(), "audit-*.jsonl")
 	require.NoError(t, err)
-	f.Close()
+	require.NoError(t, f.Close())
 
 	obs, err := NewFileObserver(f.Name())
 	require.NoError(t, err)
-	defer obs.Close()
+	defer func() { _ = obs.Close() }()
 
 	events := []entity.AuditEvent{
 		{Timestamp: 100, Metrics: []string{"Alloc"}, IPAddress: "10.0.0.1"},
@@ -27,7 +26,7 @@ func TestFileObserver_WritesJSONLines(t *testing.T) {
 	}
 
 	for _, e := range events {
-		require.NoError(t, obs.Notify(context.Background(), e))
+		require.NoError(t, obs.Notify(t.Context(), e))
 	}
 
 	data, err := os.ReadFile(f.Name())

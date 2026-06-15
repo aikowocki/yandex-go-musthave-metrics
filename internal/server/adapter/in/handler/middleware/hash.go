@@ -57,7 +57,7 @@ func WithHashValidation(key string) func(http.Handler) http.Handler {
 
 			responseBody := hw.buf.Bytes()
 			w.Header().Set(pkghash.HEADER, pkghash.ComputeHMAC(key, responseBody))
-			w.Write(responseBody)
+			_, _ = w.Write(responseBody)
 		})
 	}
 }

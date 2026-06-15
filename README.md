@@ -48,8 +48,46 @@ git fetch template && git checkout template/v2 .github
 ### Методика
 
 1. Подключён `net/http/pprof` на отдельном порту (`:6060` сервер, `:6061` агент)
-2. Нагрузка через `hey` (3×10000 запросов: `/updates`, `/update`, `/`)
+2. Нагрузка через `hey` (3 endpoint'а, параметры ниже)
 3. Профиль: `alloc_space` (cumulative allocations)
+4. Backend: PostgreSQL 16 (docker-compose)
+
+#### Команды нагрузки
+
+```bash
+# Batch update
+hey -n 10000 -c 10 -m POST \
+  -H "Content-Type: application/json" \
+  -H "Accept-Encoding: gzip" \
+  -d '[{"id":"cpu","type":"gauge","value":3.14},{"id":"hits","type":"counter","delta":5}]' \
+  http://localhost:8080/updates
+
+# Single update
+hey -n 10000 -c 10 -m POST \
+  -H "Content-Type: application/json" \
+  -H "Accept-Encoding: gzip" \
+  -d '{"id":"temp","type":"gauge","value":36.6}' \
+  http://localhost:8080/update
+
+# GET all metrics (HTML)
+hey -n 10000 -c 10 \
+  -H "Accept-Encoding: gzip" \
+  http://localhost:8080/
+```
+
+#### Снятие профилей
+
+```bash
+# До правок 
+curl -o profiles/base.pprof http://localhost:6060/debug/pprof/alloc
+# После правок
+curl -o profiles/agent_base.pprof http://localhost:6061/debug/pprof/allocs
+
+# Сравнение
+go tool pprof -top -diff_base=profiles/base.pprof profiles/result.pprof
+```
+
+
 
 ### Результат оптимизации сервера
 
@@ -91,7 +129,78 @@ Showing nodes accounting for -27734.09kB, 79.70% of 34799.20kB total
 | Оптимизация | Файл | Эффект |
 |-------------|------|--------|
 | `sync.Pool` для `gzip.Writer` (сервер) | `middleware/gzip.go` | -10.5 GB allocs |
-| `sync.Pool` для `gzip.Reader` (сервер) | `middleware/gzip.go` | -51 KB/req |
+| `sync.Pool` для `gzip.Reader` (сервер) | `middleware/gzip.go` | 51 KB → 10.5 KB/req (-79%) |
 | `sync.Pool` для `gzip.Writer` (агент) | `agent/sender.go` | -19 KB allocs |
 | Убрать `map[string]any` boxing | `agent/collector.go` | 0 allocs в CollectMetrics |
 | Pre-allocate слайса | `agent/sender.go` | -39% allocs в CollectBatch |
+
+### Результаты бенчмарков (до → после)
+
+```bash
+go test -bench=. -benchmem -count=3 ./internal/...
+```
+
+| Benchmark | B/op до | B/op после | Снижение | allocs до | allocs после |
+|-----------|--------:|-----------:|---------:|----------:|-------------:|
+| GzipCompression_Response | 820,952 | 6,867 | **-99.2%** | 41 | 23 |
+| GzipCompression_LargePayload | 823,258 | 9,425 | **-98.9%** | 41 | 24 |
+| GzipDecompression_Request | 51,692 | 10,571 | **-79.5%** | 26 | 21 |
+| CollectMetrics | 1,432 | 0 | **-100%** | 28 | 0 |
+| CollectBatch | 5,136 | 3,136 | **-39%** | 43 | 38 |
+
+
+## Покрытие тестами
+
+Общее покрытие: **62.0%** (с `-coverpkg=./...` для учёта кросс-пакетных вызовов)
+
+### Состав тестов
+
+- **Unit** — domain-сущности (`entity`), хранилища, usecase, хендлеры, middleware (gzip, hash), audit-публишеры, утилиты `pkg/*`
+- **Contract** — общий набор `runStorageTests` прогоняется и на `MetricStore`, и на `SyncBackupStorage`
+- **Concurrency** — параллельная нагрузка (50 горутин × 100 операций) на `LocalMetrics` (агент) и `MetricStore` (сервер), проверяется детектором гонок (`-race`)
+- **Backup** — синхронное и фоновое (по тикеру) сохранение, восстановление из файла, сохранение по отмене `context`
+- **Integration** — репозиторий PostgreSQL через `testcontainers` (поднимает `postgres:16` в Docker)
+- **Smoke** — поднятие приложения целиком и прогон HTTP-сценариев с graceful shutdown
+- **Example** — исполняемые примеры для godoc (`ExampleMetricJSONHandler_*`)
+- **Benchmark** — `-bench` для хранилищ, gzip и сбора метрик (см. раздел оптимизации)
+
+```bash
+# Все тесты
+go test ./...
+
+# С детектором гонок (concurrency-тесты)
+go test -race ./...
+
+# Запуск тестов с покрытием
+go test ./... -coverprofile=coverage.out -coverpkg=./...
+
+# HTML-отчёт в браузере
+go tool cover -html=coverage.out
+
+# Итоговая цифра
+go tool cover -func=coverage.out | tail -1
+```
+
+### Покрытие по пакетам
+
+| Пакет | Покрытие |
+|---|---|
+| `pkg/pool` | 100% |
+| `pkg/hash` | 100% |
+| `pkg/retry` | 100% |
+| `internal/server/entity` | 100% |
+| `cmd/staticlint/exitcheck` | 95.2% |
+| `internal/server/usecase` | 90.9% |
+| `internal/server/adapter/out/audit` | 86.2% |
+| `internal/agent` | 74.1% |
+| `internal/server/adapter/in/handler` | 70.4% |
+| `internal/server/adapter/in/handler/middleware` | 67.0% |
+| `internal/server/adapter/out/memory` | 62.3% |
+| `internal/server/app` | 50.9% |
+
+### Не покрыто (осознанно)
+
+- `cmd/*` — main-пакеты, покрываются автотестами Практикума
+- `internal/logger` — инициализация инфраструктуры (zap + файлы)
+- `internal/server/config` — `flag.Parse()` делает unit-тестирование невозможным
+- `postgres/pgx` — покрывается интеграционными тестами через testcontainers (учитывается с `-coverpkg`)

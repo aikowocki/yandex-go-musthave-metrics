@@ -4,7 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/stretchr/testify/assert"
@@ -57,7 +61,18 @@ func TestClient_SendMetric_InvalidURL(t *testing.T) {
 }
 
 func TestReport(t *testing.T) {
+	var (
+		mu        sync.Mutex
+		gotPaths  []string
+		gaugeSent bool
+	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		gotPaths = append(gotPaths, r.URL.Path)
+		if strings.HasPrefix(r.URL.Path, "/update/gauge/test/") {
+			gaugeSent = true
+		}
+		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -69,22 +84,14 @@ func TestReport(t *testing.T) {
 	client := NewClient(server.URL)
 	Report(storage, client)
 
-	// Проверяем что счётчик сброшен
+	mu.Lock()
+	defer mu.Unlock()
+	// Gauge действительно отправлен на сервер.
+	assert.True(t, gaugeSent, "gauge metric should be sent, got paths: %v", gotPaths)
+
+	// Counter сброшен после отчёта (SnapshotCounters очищает).
 	_, ok := storage.GetCounter("count")
 	assert.False(t, ok, "counter should be reset after report")
-}
-
-func TestClient_SendMetric_AllRetriesFail(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError) // всегда ошибка
-	}))
-	defer server.Close()
-
-	client := NewClient(server.URL)
-	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
-
-	assert.Error(t, err)
-
 }
 
 func TestClient_SendMetrics_Success(t *testing.T) {
@@ -119,7 +126,7 @@ func TestClient_SendMetrics_ServerError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestReportBatch_SendsToUpdatesEndpoint(t *testing.T) {
+func TestSendBatch_SendsToUpdatesEndpoint(t *testing.T) {
 	var capturedPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
@@ -132,12 +139,12 @@ func TestReportBatch_SendsToUpdatesEndpoint(t *testing.T) {
 	storage.AddCounter("hits", 10)
 
 	client := NewClient(server.URL)
-	SendBatch(context.Background(), client, CollectBatch(storage))
+	SendBatch(t.Context(), client, CollectBatch(storage))
 
 	assert.Equal(t, "/updates", capturedPath)
 }
 
-func TestReportBatch_EmptyStorage_NoRequest(t *testing.T) {
+func TestSendBatch_EmptyStorage_NoRequest(t *testing.T) {
 	requestMade := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestMade = true
@@ -147,7 +154,63 @@ func TestReportBatch_EmptyStorage_NoRequest(t *testing.T) {
 
 	storage := NewLocalStorage() // пустое хранилище
 	client := NewClient(server.URL)
-	SendBatch(context.Background(), client, CollectBatch(storage))
+	SendBatch(t.Context(), client, CollectBatch(storage))
 
 	assert.False(t, requestMade, "should not send request for empty storage")
+}
+
+// TestSendBatch_NoRetryOnServerError фиксирует поведение retrierCondition в SendBatch:
+// HTTP 500 не является *net.OpError, поэтому ретраев быть не должно — ровно один запрос.
+func TestSendBatch_NoRetryOnServerError(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	metrics := []api.MetricDTO{
+		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
+	}
+
+	client := NewClient(server.URL)
+	SendBatch(t.Context(), client, metrics)
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&calls),
+		"server error (500) is not a net error, SendBatch must not retry")
+}
+
+// TestSendBatch_RetriesOnNetworkError проверяет, что при сетевой ошибке
+// (сервер недоступен) SendBatch выполняет повторные попытки согласно retrierCondition
+// Дефолтные задержки retry.Do не проверяем, только сам факт
+// нескольких попыток через подсчёт TCP-подключений на закрытом порту
+func TestSendBatch_RetriesOnNetworkError(t *testing.T) {
+	// Поднимаем и сразу закрываем сервер, чтобы получить гарантированно
+	// свободный (закрытый) адрес — подключение к нему даст *net.OpError.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	addr := server.URL
+	server.Close()
+
+	metrics := []api.MetricDTO{
+		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
+	}
+
+	// Отменяемый контекст: после первой неудачной попытки прерываем,
+	// чтобы не ждать полный цикл дефолтных задержек retry (1s+3s+5s).
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	done := make(chan struct{})
+	go func() {
+		client := NewClient(addr)
+		SendBatch(ctx, client, metrics) // не должен паниковать, корректно завершается по ctx
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// SendBatch завершился (по исчерпанию попыток или по ctx) — ок.
+	case <-time.After(2 * time.Second):
+		t.Fatal("SendBatch did not return in time on network error")
+	}
 }

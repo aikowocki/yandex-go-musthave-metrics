@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"context"
 	"testing"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
@@ -13,7 +12,7 @@ import (
 func testMetricRepo(t *testing.T, storage port.PGStorage) {
 	t.Helper()
 	repo := storage.MetricRepo()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("CreateOrUpdateGauge", func(t *testing.T) {
 		gauge := entity.NewGaugeMetric("cpu", 0.5)

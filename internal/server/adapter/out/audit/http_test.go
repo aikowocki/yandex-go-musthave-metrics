@@ -1,7 +1,6 @@
 package audit
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -32,7 +31,7 @@ func TestHTTPObserver_PostsJSON(t *testing.T) {
 		IPAddress: "192.168.1.1",
 	}
 
-	err := obs.Notify(context.Background(), event)
+	err := obs.Notify(t.Context(), event)
 	require.NoError(t, err)
 	assert.Equal(t, event, received)
 }
@@ -44,13 +43,13 @@ func TestHTTPObserver_ReturnsErrorOn4xx(t *testing.T) {
 	defer srv.Close()
 
 	obs := NewHTTPObserver(srv.URL)
-	err := obs.Notify(context.Background(), entity.AuditEvent{Timestamp: 1, Metrics: []string{"x"}, IPAddress: "1.1.1.1"})
+	err := obs.Notify(t.Context(), entity.AuditEvent{Timestamp: 1, Metrics: []string{"x"}, IPAddress: "1.1.1.1"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "400")
 }
 
 func TestHTTPObserver_ReturnsErrorOnUnreachable(t *testing.T) {
 	obs := NewHTTPObserver("http://127.0.0.1:1") // nothing listens here
-	err := obs.Notify(context.Background(), entity.AuditEvent{Timestamp: 1, Metrics: []string{"x"}, IPAddress: "1.1.1.1"})
+	err := obs.Notify(t.Context(), entity.AuditEvent{Timestamp: 1, Metrics: []string{"x"}, IPAddress: "1.1.1.1"})
 	assert.Error(t, err)
 }

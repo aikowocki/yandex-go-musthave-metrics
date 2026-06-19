@@ -15,7 +15,13 @@ type RouterOptions struct {
 
 // NewRouter собирает HTTP-роутер со всеми эндпоинтами и middleware.
 // Порядок middleware: StripSlashes → RequestID → MaxBody → Logging → Gzip → Decrypt → Hash.
-func NewRouter(metric *MetricHandler, metricJSON *MetricJSONHandler, health *HealthHandler, key string, opts ...RouterOptions) *chi.Mux {
+func NewRouter(
+	metric *MetricHandler,
+	metricJSON *MetricJSONHandler,
+	health *HealthHandler,
+	key string,
+	opts ...RouterOptions,
+) *chi.Mux {
 	var opt RouterOptions
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -24,11 +30,15 @@ func NewRouter(metric *MetricHandler, metricJSON *MetricJSONHandler, health *Hea
 	r := chi.NewRouter()
 	r.Use(chimw.StripSlashes)
 	r.Use(chimw.RequestID)
-	r.Use(middleware.WithMaxBodySize(middleware.DefaultMaxBodyBytes)) // ограничение размера сырого тела до gzip/hash/handler
-	r.Use(middleware.WithLogging())                                   // порядок важен
-	r.Use(middleware.WithGzipCompression())                           // gzip сначала декомпрессирует тело
-	r.Use(middleware.WithDecryption(opt.CryptoPrivateKey))            // потом расшифровка
-	r.Use(middleware.WithHashValidation(key))                         // потом hash middleware проверяет хеш от уже расшифрованного тела
+	r.Use(
+		middleware.WithMaxBodySize(middleware.DefaultMaxBodyBytes),
+	) // ограничение размера сырого тела до gzip/hash/handler
+	r.Use(middleware.WithLogging())                        // порядок важен
+	r.Use(middleware.WithGzipCompression())                // gzip сначала декомпрессирует тело
+	r.Use(middleware.WithDecryption(opt.CryptoPrivateKey)) // потом расшифровка
+	r.Use(
+		middleware.WithHashValidation(key),
+	) // потом hash middleware проверяет хеш от уже расшифрованного тела
 
 	//r.Use(middleware.WithRecovery) //toDO
 

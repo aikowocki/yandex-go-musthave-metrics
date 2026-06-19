@@ -160,7 +160,9 @@ func main() {
 
 	// Добавляем выбранные анализаторы остальных классов (S, ST, QF).
 	// Все три пакета экспортируют []*lint.Analyzer, поэтому объединяем их.
-	otherClasses := append(append(append([]*lint.Analyzer{}, simple.Analyzers...), stylecheck.Analyzers...), quickfix.Analyzers...)
+	otherClasses := append(
+		append(append([]*lint.Analyzer{}, simple.Analyzers...), stylecheck.Analyzers...),
+		quickfix.Analyzers...)
 	for _, a := range otherClasses {
 		if nonSAChecks[a.Analyzer.Name] {
 			checks = append(checks, a.Analyzer)

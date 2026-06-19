@@ -33,8 +33,16 @@ func New(name string) (func(), error) {
 		parsedLevel = zapcore.InfoLevel
 	}
 
-	consoleCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encCfg), zapcore.AddSync(os.Stdout), zap.NewAtomicLevelAt(parsedLevel))
-	fileCore := zapcore.NewCore(zapcore.NewJSONEncoder(encCfg), zapcore.AddSync(file), zap.NewAtomicLevelAt(parsedLevel))
+	consoleCore := zapcore.NewCore(
+		zapcore.NewConsoleEncoder(encCfg),
+		zapcore.AddSync(os.Stdout),
+		zap.NewAtomicLevelAt(parsedLevel),
+	)
+	fileCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encCfg),
+		zapcore.AddSync(file),
+		zap.NewAtomicLevelAt(parsedLevel),
+	)
 
 	teeCore := zapcore.NewTee(consoleCore, fileCore)
 

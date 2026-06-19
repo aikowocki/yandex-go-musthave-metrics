@@ -61,11 +61,19 @@ func (s *SyncBackupStorage) GetAllCounters(ctx context.Context) (map[string]int6
 	return s.storage.GetAllCounters(ctx)
 }
 
-func (s *SyncBackupStorage) RestoreBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+func (s *SyncBackupStorage) RestoreBatch(
+	ctx context.Context,
+	gauges map[string]float64,
+	counters map[string]int64,
+) error {
 	return s.storage.RestoreBatch(ctx, gauges, counters)
 }
 
-func (s *SyncBackupStorage) UpdateBatch(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+func (s *SyncBackupStorage) UpdateBatch(
+	ctx context.Context,
+	gauges map[string]float64,
+	counters map[string]int64,
+) error {
 	err := s.storage.UpdateBatch(ctx, gauges, counters)
 	if err == nil {
 		saveErr := s.backup.Save()

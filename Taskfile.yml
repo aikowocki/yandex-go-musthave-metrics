@@ -61,6 +61,11 @@ tasks:
     cmds:
       - go fmt ./...
 
+  golines:
+    desc: Сократить длинные строки (макс 120 символов)
+    cmds:
+      - golines -w -m 120 --shorten-comments .
+
   run-server:
     desc: Run server
     cmds:

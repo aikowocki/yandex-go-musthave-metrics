@@ -62,7 +62,11 @@ func main() {
 	}()
 
 	storage := agent.NewLocalStorage()
-	client := agent.NewClient("http://"+cfg.ServerAddress, agent.WithServerKey(cfg.Key))
+	clientOpts := []agent.ClientOption{agent.WithServerKey(cfg.Key)}
+	if cfg.CryptoKey != "" {
+		clientOpts = append(clientOpts, agent.WithCryptoKey(cfg.CryptoKey))
+	}
+	client := agent.NewClient("http://"+cfg.ServerAddress, clientOpts...)
 
 	jobs := make(chan []api.MetricDTO, cfg.RateLimit)
 

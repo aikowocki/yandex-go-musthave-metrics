@@ -31,6 +31,7 @@ type AgentConfig struct {
 	ReportInterval Seconds `env:"REPORT_INTERVAL"`
 	PollInterval   Seconds `env:"POLL_INTERVAL"`
 	Key            string  `env:"KEY"`
+	CryptoKey      string  `env:"CRYPTO_KEY"`
 	RateLimit      int     `env:"RATE_LIMIT"`
 	PprofAddress   string  `env:"PPROF_ADDRESS"`
 }
@@ -46,6 +47,7 @@ func NewAgentConfig() (*AgentConfig, error) {
 	flag.Var(&cfg.ReportInterval, "r", "report interval in seconds")
 	flag.Var(&cfg.PollInterval, "p", "poll interval in seconds")
 	flag.StringVar(&cfg.Key, "k", "", "hash key")
+	flag.StringVar(&cfg.CryptoKey, "crypto-key", "", "path to public key file for RSA encryption")
 	flag.IntVar(&cfg.RateLimit, "l", 1, "rate limit for concurrent requests")
 	flag.StringVar(&cfg.PprofAddress, "pprof-address", "localhost:6061", "pprof server address")
 

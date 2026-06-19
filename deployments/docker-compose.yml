@@ -37,11 +37,13 @@ services:
       STORE_INTERVAL: "300"
       RESTORE: "true"
       KEY: ${KEY:-}
+      CRYPTO_KEY: ${SERVER_CRYPTO_KEY:-}
       AUDIT_FILE: ${AUDIT_FILE:-}
       AUDIT_URL: ${AUDIT_URL:-}
       PPROF_ADDRESS: 0.0.0.0:6060
     volumes:
       - server_data:/data
+      - ${KEYS_DIR:-./keys}:/keys:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,7 +66,10 @@ services:
       REPORT_INTERVAL: "10"
       POLL_INTERVAL: "2"
       KEY: ${KEY:-}
+      CRYPTO_KEY: ${AGENT_CRYPTO_KEY:-}
       RATE_LIMIT: ${RATE_LIMIT:-5}
+    volumes:
+      - ${KEYS_DIR:-./keys}:/keys:ro
     depends_on:
       - server
     restart: unless-stopped

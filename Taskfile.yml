@@ -77,6 +77,16 @@ tasks:
       - rm -f cmd/server/server
       - rm -f cmd/agent/agent
 
+  keygen:
+    desc: "Сгенерировать пару RSA-ключей для шифрования"
+    vars:
+      KEYS_DIR: '{{.KEYS_DIR | default "keys"}}'
+    cmds:
+      - go run ./cmd/keygen -public {{.KEYS_DIR}}/public.pem -private {{.KEYS_DIR}}/private.pem
+    status:
+      - test -f {{.KEYS_DIR}}/public.pem
+      - test -f {{.KEYS_DIR}}/private.pem
+
   autotest-1:
     desc: Run iteration 1 autotest
     deps: [build-server]

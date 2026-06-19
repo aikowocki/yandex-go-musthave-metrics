@@ -41,9 +41,11 @@ services:
       AUDIT_FILE: ${AUDIT_FILE:-}
       AUDIT_URL: ${AUDIT_URL:-}
       PPROF_ADDRESS: 0.0.0.0:6060
+      CONFIG: /etc/metrics/server.json
     volumes:
       - server_data:/data
       - ${KEYS_DIR:-./keys}:/keys:ro
+      - ./config/server.json:/etc/metrics/server.json:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,8 +70,10 @@ services:
       KEY: ${KEY:-}
       CRYPTO_KEY: ${AGENT_CRYPTO_KEY:-}
       RATE_LIMIT: ${RATE_LIMIT:-5}
+      CONFIG: /etc/metrics/agent.json
     volumes:
       - ${KEYS_DIR:-./keys}:/keys:ro
+      - ./config/agent.json:/etc/metrics/agent.json:ro
     depends_on:
       - server
     restart: unless-stopped

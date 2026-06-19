@@ -27,7 +27,8 @@ vendor/
 # Environment files
 .env
 deployments/.env
-
+deployments/config/*
+!deployments/config/*.example.json
 # Data directories
 backup
 tmp

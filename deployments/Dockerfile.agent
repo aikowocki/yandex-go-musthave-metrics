@@ -14,4 +14,5 @@ RUN CGO_ENABLED=0 go build -trimpath \
 
 FROM alpine:3.20
 COPY --from=builder /agent /agent
+COPY deployments/config/agent.json /etc/metrics/agent.json
 CMD ["/agent"]

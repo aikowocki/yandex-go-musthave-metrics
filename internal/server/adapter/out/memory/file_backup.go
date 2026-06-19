@@ -104,28 +104,37 @@ func (fb *FileBackup) Restore() error {
 
 }
 
-func (fb *FileBackup) Start(ctx context.Context) {
-	if fb.interval > 0 {
-		go func() {
-			ticker := time.NewTicker(fb.interval)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ticker.C:
-					err := fb.Save()
-					if err != nil {
-						zap.S().Errorw("backup save error", zap.Error(err))
-
-					}
-
-				case <-ctx.Done():
-					err := fb.Save()
-					if err != nil {
-						zap.S().Errorw("shutdown backup save error", zap.Error(err))
-					}
-					return
-				}
-			}
-		}()
+// Start запускает фоновое автосохранение по тикеру при interval > 0.
+// Возвращает канал, который закрывается после выхода горутины — то есть
+// после выполнения финального Save по отмене ctx. При interval <= 0
+// возвращается уже закрытый канал.
+func (fb *FileBackup) Start(ctx context.Context) <-chan struct{} {
+	done := make(chan struct{})
+	if fb.interval <= 0 {
+		close(done)
+		return done
 	}
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(fb.interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				err := fb.Save()
+				if err != nil {
+					zap.S().Errorw("backup save error", zap.Error(err))
+
+				}
+
+			case <-ctx.Done():
+				err := fb.Save()
+				if err != nil {
+					zap.S().Errorw("shutdown backup save error", zap.Error(err))
+				}
+				return
+			}
+		}
+	}()
+	return done
 }

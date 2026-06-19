@@ -35,7 +35,7 @@ func printBuildInfo() {
 func main() {
 	printBuildInfo()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	defer stop()
 
 	if err := godotenv.Load(); err != nil {

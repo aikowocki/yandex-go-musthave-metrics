@@ -131,12 +131,30 @@ func main() {
 		}
 	})
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sigCh
+	log.Println("shutting down gracefully, press Ctrl+C again to force exit")
 
-	cancel()           // 1. сигнализируем всем горутинам остановиться
-	wgProducers.Wait() // 2. ждём, пока продюсеры закончат и больше никто не пишет в jobs
-	close(jobs)        // 3. безопасно закрываем канал
-	wgWorkers.Wait()   // 4. воркеры дочитают остатки и выйдут из for range
+	cancel() // сигнализируем всем горутинам остановиться
+
+	// Graceful shutdown выполняем в отдельной горутине, чтобы main мог
+	// одновременно слушать второй сигнал.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wgProducers.Wait() // ждём, пока продюсеры закончат и больше никто не пишет в jobs
+		close(jobs)        // безопасно закрываем канал
+		wgWorkers.Wait()   // воркеры дочитают остатки и выйдут из for range
+	}()
+
+	select {
+	case <-done:
+		// graceful shutdown завершился сам — последняя пачка отправлена.
+	case <-sigCh:
+		// второй сигнал пришёл раньше — выходим немедленно.
+		// os.Exit не выполняет defer (loggerCleanup, cancel) т.к форсим завершение.
+		log.Println("forced exit")
+		os.Exit(1)
+	}
 }

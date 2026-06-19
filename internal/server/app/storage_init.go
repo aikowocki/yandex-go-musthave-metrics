@@ -14,10 +14,11 @@ import (
 )
 
 type storageResult struct {
-	repos     port.Repositories
-	txManager port.TxManager // nil для memory
-	closer    func()
-	pinger    port.Pinger // nil для memory
+	repos      port.Repositories
+	txManager  port.TxManager // nil для memory
+	closer     func()
+	waitBackup func(context.Context) // nil, если фонового бэкапа нет (PG / sync / без файла)
+	pinger     port.Pinger           // nil для memory
 }
 
 func initStorage(ctx context.Context, cfg *config.ServerConfig) (*storageResult, error) {
@@ -50,7 +51,8 @@ func initStorage(ctx context.Context, cfg *config.ServerConfig) (*storageResult,
 
 	memStorage := memory.NewMemoryStorage(ctx, cfg.FileStoragePath, cfg.Restore, time.Duration(cfg.StoreInterval))
 	return &storageResult{
-		repos:  memStorage,
-		closer: func() {},
+		repos:      memStorage,
+		closer:     func() {},
+		waitBackup: memStorage.WaitBackup,
 	}, nil
 }

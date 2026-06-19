@@ -66,6 +66,11 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 	}
 
 	closer := func(ctx context.Context) {
+		// Сначала дожидаемся, пока фоновая горутина бэкапа выполнит финальный
+		// Save (в рамках бюджета ctx), и только потом освобождаем ресурсы.
+		if storage.waitBackup != nil {
+			storage.waitBackup(ctx)
+		}
 		auditClose(ctx)
 		storage.closer()
 	}

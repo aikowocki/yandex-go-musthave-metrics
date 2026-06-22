@@ -58,6 +58,7 @@
 package main
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/kisielk/errcheck/errcheck"
@@ -90,7 +91,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unreachable"
 	"golang.org/x/tools/go/analysis/passes/unsafeptr"
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
-	"honnef.co/go/tools/analysis/lint"
 	"honnef.co/go/tools/quickfix"
 	"honnef.co/go/tools/simple"
 	"honnef.co/go/tools/staticcheck"
@@ -160,9 +160,7 @@ func main() {
 
 	// Добавляем выбранные анализаторы остальных классов (S, ST, QF).
 	// Все три пакета экспортируют []*lint.Analyzer, поэтому объединяем их.
-	otherClasses := append(
-		append(append([]*lint.Analyzer{}, simple.Analyzers...), stylecheck.Analyzers...),
-		quickfix.Analyzers...)
+	otherClasses := slices.Concat(simple.Analyzers, stylecheck.Analyzers, quickfix.Analyzers)
 	for _, a := range otherClasses {
 		if nonSAChecks[a.Analyzer.Name] {
 			checks = append(checks, a.Analyzer)

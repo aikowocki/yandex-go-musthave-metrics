@@ -57,6 +57,29 @@ func TestWithDecryption_NoHeader_PassesThrough(t *testing.T) {
 	assert.Equal(t, body, rec.Body.String())
 }
 
+func TestWithDecryption_InvalidHeaderValue_PassesThrough(t *testing.T) {
+	key := generateTestKey(t)
+	body := `{"id":"cpu","type":"gauge","value":1.0}`
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		_, _ = w.Write(b)
+	})
+	handler := WithDecryption(key)(inner)
+
+	// Заголовок X-Encrypted есть, но значение не "1" — расшифровка НЕ должна запускаться.
+	values := []string{"0", "true", "yes", "false", "2", "on"}
+	for _, v := range values {
+		req := httptest.NewRequest(http.MethodPost, "/update", strings.NewReader(body))
+		req.Header.Set("X-Encrypted", v)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusOK, rec.Code, "value=%q should pass through", v)
+		assert.Equal(t, body, rec.Body.String(), "value=%q body should be unchanged", v)
+	}
+}
+
 func TestWithDecryption_ValidEncryptedBody(t *testing.T) {
 	key := generateTestKey(t)
 	originalBody := `{"id":"cpu","type":"gauge","value":42.5}`

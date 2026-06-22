@@ -20,7 +20,7 @@ func WithDecryption(privateKey *rsa.PrivateKey) func(http.Handler) http.Handler 
 			}
 
 			// Расшифровываем только если агент отправил заголовок шифрования.
-			if r.Header.Get("X-Encrypted") == "" {
+			if r.Header.Get("X-Encrypted") != "1" {
 				next.ServeHTTP(w, r)
 				return
 			}

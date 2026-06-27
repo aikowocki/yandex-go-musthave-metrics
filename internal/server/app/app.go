@@ -8,6 +8,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/in/handler"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/config"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/usecase"
+	pkgcrypto "github.com/aikowocki/yandex-go-musthave-metrics/pkg/crypto"
 	"go.uber.org/zap"
 )
 
@@ -41,7 +42,18 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 
 	healthHandler := handler.NewHealthHandler(storage.pinger)
 
-	r := handler.NewRouter(metricHandler, metricJSONHandler, healthHandler, cfg.Key)
+	var routerOpts handler.RouterOptions
+	if cfg.CryptoKey != "" {
+		privateKey, cryptoErr := pkgcrypto.LoadPrivateKey(cfg.CryptoKey)
+		if cryptoErr != nil {
+			storage.closer()
+			return nil, cryptoErr
+		}
+		routerOpts.CryptoPrivateKey = privateKey
+		zap.S().Infow("RSA decryption enabled", "key", cfg.CryptoKey)
+	}
+
+	r := handler.NewRouter(metricHandler, metricJSONHandler, healthHandler, cfg.Key, routerOpts)
 
 	zap.S().Infow(
 		"Server starting",
@@ -54,6 +66,11 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 	}
 
 	closer := func(ctx context.Context) {
+		// Сначала дожидаемся, пока фоновая горутина бэкапа выполнит финальный
+		// Save (в рамках бюджета ctx), и только потом освобождаем ресурсы.
+		if storage.waitBackup != nil {
+			storage.waitBackup(ctx)
+		}
 		auditClose(ctx)
 		storage.closer()
 	}

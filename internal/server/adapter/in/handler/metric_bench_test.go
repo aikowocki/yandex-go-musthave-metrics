@@ -45,7 +45,9 @@ func BenchmarkMetricJSONHandler_Get(b *testing.B) {
 func BenchmarkMetricJSONHandler_BatchUpdate(b *testing.B) {
 	h := NewMetricJSONHandler(newTestUseCase(), nil)
 
-	body := []byte(`[{"id":"cpu","type":"gauge","value":3.14},{"id":"mem","type":"gauge","value":128.5},{"id":"hits","type":"counter","delta":5}]`)
+	body := []byte(
+		`[{"id":"cpu","type":"gauge","value":3.14},{"id":"mem","type":"gauge","value":128.5},{"id":"hits","type":"counter","delta":5}]`,
+	)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

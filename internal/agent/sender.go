@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/constants"
+	pkgcrypto "github.com/aikowocki/yandex-go-musthave-metrics/pkg/crypto"
 	pkghash "github.com/aikowocki/yandex-go-musthave-metrics/pkg/hash"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/pool"
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
@@ -34,12 +36,21 @@ func WithServerKey(key string) ClientOption {
 	}
 }
 
+// WithCryptoKey задаёт путь к файлу с RSA публичным ключом для шифрования запросов.
+func WithCryptoKey(path string) ClientOption {
+	return func(c *Client) {
+		c.cryptoKeyPath = path
+	}
+}
+
 // Client — HTTP-клиент агента для отправки метрик на сервер.
-// Поддерживает gzip-сжатие и HMAC-подпись запросов.
+// Поддерживает gzip-сжатие, HMAC-подпись и RSA-шифрование запросов.
 type Client struct {
-	restyClient *resty.Client
-	serverURL   string
-	serverKey   string
+	restyClient   *resty.Client
+	serverURL     string
+	serverKey     string
+	cryptoKeyPath string
+	publicKey     *rsa.PublicKey
 }
 
 // NewClient создаёт нового клиента для отправки метрик на указанный сервер.
@@ -49,6 +60,16 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 	}
 	for _, opt := range opts {
 		opt(c)
+	}
+
+	// Загружаем RSA публичный ключ если задан путь.
+	if c.cryptoKeyPath != "" {
+		pub, err := pkgcrypto.LoadPublicKey(c.cryptoKeyPath)
+		if err != nil {
+			zap.S().Fatalw("filed to load RSA public key", "path", c.cryptoKeyPath, "error", err)
+		}
+		c.publicKey = pub
+		zap.S().Infow("RSA encryption enabled", "key", c.cryptoKeyPath)
 	}
 
 	restyClient := resty.New().
@@ -65,10 +86,21 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 				return err
 			}
 
+			// HMAC от оригинального (незашифрованного) тела.
 			if c.serverKey != "" {
 				r.Header.Set(pkghash.HEADER, pkghash.ComputeHMAC(c.serverKey, body))
 			}
 
+			// RSA шифрование (перед gzip).
+			if c.publicKey != nil {
+				body, err = pkgcrypto.Encrypt(c.publicKey, body)
+				if err != nil {
+					return fmt.Errorf("rsa encrypt: %w", err)
+				}
+				r.Header.Set("X-Encrypted", "1")
+			}
+
+			// Gzip сжатие.
 			var buf bytes.Buffer
 
 			gz := gzipWriterPool.Get()

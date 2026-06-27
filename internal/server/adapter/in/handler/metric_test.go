@@ -148,11 +148,25 @@ func TestMetricJSONHandler_Update(t *testing.T) {
 		wantStatusCode int
 		wantJSON       bool
 	}{
-		{name: "success gauge", body: `{"id":"cpu","type":"gauge","value":3.14}`, wantStatusCode: http.StatusOK, wantJSON: true},
-		{name: "success counter", body: `{"id":"hits","type":"counter","delta":5}`, wantStatusCode: http.StatusOK, wantJSON: true},
+		{
+			name:           "success gauge",
+			body:           `{"id":"cpu","type":"gauge","value":3.14}`,
+			wantStatusCode: http.StatusOK,
+			wantJSON:       true,
+		},
+		{
+			name:           "success counter",
+			body:           `{"id":"hits","type":"counter","delta":5}`,
+			wantStatusCode: http.StatusOK,
+			wantJSON:       true,
+		},
 		{name: "invalid json", body: `{broken`, wantStatusCode: http.StatusBadRequest},
 		{name: "empty name", body: `{"id":"","type":"gauge","value":1.0}`, wantStatusCode: http.StatusNotFound},
-		{name: "unknown type", body: `{"id":"test","type":"unknown","value":1.0}`, wantStatusCode: http.StatusBadRequest},
+		{
+			name:           "unknown type",
+			body:           `{"id":"test","type":"unknown","value":1.0}`,
+			wantStatusCode: http.StatusBadRequest,
+		},
 		{name: "gauge without value", body: `{"id":"test","type":"gauge"}`, wantStatusCode: http.StatusBadRequest},
 		{name: "counter without delta", body: `{"id":"test","type":"counter"}`, wantStatusCode: http.StatusBadRequest},
 	}
@@ -319,9 +333,17 @@ func TestMetricJSONHandler_BatchUpdate(t *testing.T) {
 		},
 		{name: "empty batch", body: `[]`, wantStatusCode: http.StatusOK},
 		{name: "invalid json", body: `{broken`, wantStatusCode: http.StatusBadRequest},
-		{name: "unknown metric type", body: `[{"id":"test","type":"unknown","value":1.0}]`, wantStatusCode: http.StatusBadRequest},
+		{
+			name:           "unknown metric type",
+			body:           `[{"id":"test","type":"unknown","value":1.0}]`,
+			wantStatusCode: http.StatusBadRequest,
+		},
 		{name: "gauge without value", body: `[{"id":"cpu","type":"gauge"}]`, wantStatusCode: http.StatusBadRequest},
-		{name: "counter without delta", body: `[{"id":"hits","type":"counter"}]`, wantStatusCode: http.StatusBadRequest},
+		{
+			name:           "counter without delta",
+			body:           `[{"id":"hits","type":"counter"}]`,
+			wantStatusCode: http.StatusBadRequest,
+		},
 	}
 
 	for _, tt := range tests {

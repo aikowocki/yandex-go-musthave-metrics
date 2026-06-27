@@ -14,4 +14,5 @@ RUN CGO_ENABLED=0 go build -trimpath \
 
 FROM alpine:3.20
 COPY --from=builder /server /server
+COPY deployments/config/server.json /etc/metrics/server.json
 CMD ["/server"]

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -120,7 +121,39 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 			return nil
 		})
 	c.restyClient = restyClient
+
+	// X-Real-IP — исходящий IP-адрес хоста агента, по которому сервер
+	// проверяет принадлежность к доверенной подсети.
+	if ip := outboundIP(serverURL); ip != "" {
+		// по идее выставление этого заголовка в проде на плечах nginx/Traefik/...
+		restyClient.SetHeader("X-Real-IP", ip)
+	}
+
 	return c
+}
+
+// outboundIP определяет исходящий IP-адрес хоста, который ОС выберет для
+// соединения с сервером. UDP-«соединение» реально пакеты не отправляет,
+// но заставляет ядро выбрать сетевой интерфейс и локальный адрес.
+func outboundIP(serverURL string) string {
+	host := serverURL
+	if u, err := url.Parse(serverURL); err == nil && u.Host != "" {
+		host = u.Host
+	}
+
+	conn, err := net.Dial("udp", host)
+	if err != nil {
+		zap.S().Warnw("failed to determine outbound IP", "host", host, "error", err)
+		return ""
+	}
+	defer func() { _ = conn.Close() }()
+
+	if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+		ip := addr.IP.String()
+		zap.S().Infow("determined outbound IP", "ip", ip)
+		return ip
+	}
+	return ""
 }
 
 // Deprecated: use ReportJSON

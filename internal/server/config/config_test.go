@@ -41,7 +41,8 @@ func TestParseServerConfig_JSONFile(t *testing.T) {
 		"crypto_key": "/json/key.pem",
 		"audit_file": "/json/audit.log",
 		"audit_url": "http://json/audit",
-		"pprof_address": "localhost:7777"
+		"pprof_address": "localhost:7777",
+		"trusted_subnet": "10.0.0.0/8"
 	}`)
 
 	cfg, err := parseServerConfig([]string{"-c", path}, nil)
@@ -57,6 +58,7 @@ func TestParseServerConfig_JSONFile(t *testing.T) {
 	assert.Equal(t, "/json/audit.log", cfg.AuditFile)
 	assert.Equal(t, "http://json/audit", cfg.AuditURL)
 	assert.Equal(t, "localhost:7777", cfg.PprofAddress)
+	assert.Equal(t, "10.0.0.0/8", cfg.TrustedSubnet)
 }
 
 // TestParseServerConfig_PartialJSON проверяет сохранение дефолтов
@@ -94,16 +96,18 @@ func TestParseServerConfig_AllLayers(t *testing.T) {
 		"key": "json-key"
 	}`)
 	environ := map[string]string{
-		"ADDRESS":      "env-addr:2222",
-		"DATABASE_DSN": "env-dsn",
+		"ADDRESS":        "env-addr:2222",
+		"DATABASE_DSN":   "env-dsn",
+		"TRUSTED_SUBNET": "172.28.0.0/16",
 	}
 
-	cfg, err := parseServerConfig([]string{"-c", path, "-i", "22"}, environ)
+	cfg, err := parseServerConfig([]string{"-c", path, "-i", "22", "-t", "192.168.0.0/16"}, environ)
 	require.NoError(t, err)
 
 	assert.Equal(t, "env-addr:2222", cfg.ServerAddress, "env > flag/JSON")
 	assert.Equal(t, "env-dsn", cfg.DB.DatabaseDSN, "env > JSON")
 	assert.Equal(t, 22*time.Second, time.Duration(cfg.StoreInterval), "flag > JSON")
+	assert.Equal(t, "172.28.0.0/16", cfg.TrustedSubnet, "env > flag")
 	assert.Equal(t, "json-key", cfg.Key, "JSON применяется когда нет flag/env")
 	assert.Equal(t, "localhost:6060", cfg.PprofAddress, "дефолт когда нигде не задано")
 }

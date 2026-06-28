@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/in/handler"
@@ -24,6 +26,13 @@ func (a *ServerApp) Close(ctx context.Context) {
 }
 
 func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, error) {
+	// Парсим доверенную подсеть до выделения ресурсов: невалидный CIDR должен
+	// прерывать старт (fail-fast), а не молча отключать фильтрацию в рантайме.
+	trustedSubnet, err := parseTrustedSubnet(cfg.TrustedSubnet)
+	if err != nil {
+		return nil, err
+	}
+
 	storage, err := initStorage(ctx, cfg)
 
 	if err != nil {
@@ -53,7 +62,7 @@ func NewServerApp(ctx context.Context, cfg *config.ServerConfig) (*ServerApp, er
 		zap.S().Infow("RSA decryption enabled", "key", cfg.CryptoKey)
 	}
 
-	r := handler.NewRouter(metricHandler, metricJSONHandler, healthHandler, cfg.Key, routerOpts)
+	r := handler.NewRouter(metricHandler, metricJSONHandler, healthHandler, cfg.Key, trustedSubnet, routerOpts)
 
 	zap.S().Infow(
 		"Server starting",
@@ -88,4 +97,18 @@ func (a *ServerApp) Run(ctx context.Context) {
 func (a *ServerApp) Shutdown(ctx context.Context) error {
 
 	return a.server.Shutdown(ctx)
+}
+
+// parseTrustedSubnet разбирает CIDR из конфига в *net.IPNet.
+// Пустая строка означает выключенную фильтрацию и возвращает (nil, nil).
+// Непустое, но некорректное значение — ошибка, прерывающая старт сервера.
+func parseTrustedSubnet(cidr string) (*net.IPNet, error) {
+	if cidr == "" {
+		return nil, nil
+	}
+	_, subnet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid trusted_subnet %q: %w", cidr, err)
+	}
+	return subnet, nil
 }

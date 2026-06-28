@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/rsa"
+	"net"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/in/handler/middleware"
 	"github.com/go-chi/chi/v5"
@@ -14,12 +15,13 @@ type RouterOptions struct {
 }
 
 // NewRouter собирает HTTP-роутер со всеми эндпоинтами и middleware.
-// Порядок middleware: StripSlashes → RequestID → MaxBody → Logging → Gzip → Decrypt → Hash.
+// Порядок middleware: StripSlashes → RequestID → MaxBody → Logging → TrustedSubnet → Gzip → Decrypt → Hash.
 func NewRouter(
 	metric *MetricHandler,
 	metricJSON *MetricJSONHandler,
 	health *HealthHandler,
 	key string,
+	trustedSubnet *net.IPNet,
 	opts ...RouterOptions,
 ) *chi.Mux {
 	var opt RouterOptions
@@ -34,6 +36,7 @@ func NewRouter(
 		middleware.WithMaxBodySize(middleware.DefaultMaxBodyBytes),
 	) // ограничение размера сырого тела до gzip/hash/handler
 	r.Use(middleware.WithLogging())                        // порядок важен
+	r.Use(middleware.WithTrustedSubnet(trustedSubnet))     // отсекаем недоверенные IP до gzip/decrypt/hash
 	r.Use(middleware.WithGzipCompression())                // gzip сначала декомпрессирует тело
 	r.Use(middleware.WithDecryption(opt.CryptoPrivateKey)) // потом расшифровка
 	r.Use(

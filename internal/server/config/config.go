@@ -24,6 +24,7 @@ type ServerConfig struct {
 	AuditFile       string `env:"AUDIT_FILE"        json:"audit_file"`
 	AuditURL        string `env:"AUDIT_URL"         json:"audit_url"`
 	PprofAddress    string `env:"PPROF_ADDRESS"     json:"pprof_address"`
+	TrustedSubnet   string `env:"TRUSTED_SUBNET"    json:"trusted_subnet"`
 	ConfigFile      string `env:"CONFIG"            json:"-"`
 }
 
@@ -69,6 +70,7 @@ func parseServerConfig(args []string, environ map[string]string) (*ServerConfig,
 	fs.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disable file audit)")
 	fs.StringVar(&cfg.AuditURL, "audit-url", "", "URL for HTTP audit sink (empty disable HTTP audit)")
 	fs.StringVar(&cfg.PprofAddress, "pprof-address", "localhost:6060", "pprof address")
+	fs.StringVar(&cfg.TrustedSubnet, "t", "", "trusted subnet (CIDR) (empty disables check)")
 	fs.StringVar(&cfg.ConfigFile, "c", "", "path to JSON config file")
 	fs.StringVar(&cfg.ConfigFile, "config", "", "path to JSON config file")
 	fs.StringVar(&cfg.DB.DatabaseDSN, "d", "", "database connection DSN")

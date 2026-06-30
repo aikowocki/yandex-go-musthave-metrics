@@ -20,6 +20,8 @@ func TestFileObserver_WritesJSONLines(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = obs.Close() }()
 
+	assert.Equal(t, "file:"+f.Name(), obs.Name())
+
 	events := []entity.AuditEvent{
 		{Timestamp: 100, Metrics: []string{"Alloc"}, IPAddress: "10.0.0.1"},
 		{Timestamp: 200, Metrics: []string{"Frees", "GCSys"}, IPAddress: "10.0.0.2"},

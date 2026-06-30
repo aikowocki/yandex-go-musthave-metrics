@@ -18,6 +18,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 var (
@@ -55,9 +56,9 @@ func main() {
 	}
 
 	go func() {
-		log.Println("pprof starting", cfg.PprofAddress)
-		if err := http.ListenAndServe(cfg.PprofAddress, nil); err != nil {
-			log.Println("pprof server failed", err)
+		zap.S().Infow("pprof starting", "address", cfg.PprofAddress)
+		if pprofErr := http.ListenAndServe(cfg.PprofAddress, nil); pprofErr != nil {
+			zap.S().Errorw("pprof server failed", "error", pprofErr)
 		}
 	}()
 
@@ -66,7 +67,24 @@ func main() {
 	if cfg.CryptoKey != "" {
 		clientOpts = append(clientOpts, agent.WithCryptoKey(cfg.CryptoKey))
 	}
-	client := agent.NewClient("http://"+cfg.ServerAddress, clientOpts...)
+
+	var sender agent.MetricSender
+
+	if cfg.GRPCAddress != "" {
+		grpcClient, err := agent.NewGRPCClient(cfg.GRPCAddress)
+		if err != nil {
+			log.Fatal("failed to create gRPC client", err)
+		}
+		sender = grpcClient
+	} else {
+		sender = agent.NewClient("http://"+cfg.ServerAddress, clientOpts...)
+	}
+	// Закрываем транспорт после остановки воркеров (graceful path).
+	defer func() {
+		if err := sender.Close(); err != nil {
+			zap.S().Errorw("failed to close sender", "error", err)
+		}
+	}()
 
 	jobs := make(chan []api.MetricDTO, cfg.RateLimit)
 
@@ -79,7 +97,7 @@ func main() {
 	for i := 0; i < cfg.RateLimit; i++ {
 		wgWorkers.Go(func() {
 			for job := range jobs {
-				agent.SendBatch(ctx, client, job)
+				agent.SendBatch(ctx, sender, job)
 			}
 		})
 	}

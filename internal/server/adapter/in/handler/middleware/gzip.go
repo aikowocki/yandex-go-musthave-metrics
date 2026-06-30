@@ -79,9 +79,9 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	zr := gzipReaderPool.Get()
 	//Reset(r) — это не очистка, это инициализация: то бишь начни читать gzip-данные из r
 	if err := zr.Reset(r); err != nil {
-		// Reset не удался (например, тело — не валидный gzip)
-		// но сам reader исправен возвращаем его в пул.
-		gzipReaderPool.Put(zr)
+		// Reset не удался (например, тело — не валидный gzip).
+		// Ридер не инициализирован, поэтому Close() на нём вызывать нельзя —
+		// возвращаем nil вместо пула, чтобы не уронить resetFn.
 		return nil, err
 	}
 	return &compressReader{

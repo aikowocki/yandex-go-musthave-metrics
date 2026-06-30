@@ -10,41 +10,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// getRuntimeMetrics: Deprecated: отказался для оптимизации. пишем сразу напрямую в стор
-func getRuntimeMetrics() map[string]any {
-	var memStats runtime.MemStats
-	runtime.ReadMemStats(&memStats)
-	return map[string]any{
-		"Alloc":         memStats.Alloc,
-		"BuckHashSys":   memStats.BuckHashSys,
-		"Frees":         memStats.Frees,
-		"GCCPUFraction": memStats.GCCPUFraction,
-		"GCSys":         memStats.GCSys,
-		"HeapAlloc":     memStats.HeapAlloc,
-		"HeapIdle":      memStats.HeapIdle,
-		"HeapInuse":     memStats.HeapInuse,
-		"HeapObjects":   memStats.HeapObjects,
-		"HeapReleased":  memStats.HeapReleased,
-		"HeapSys":       memStats.HeapSys,
-		"LastGC":        memStats.LastGC,
-		"Lookups":       memStats.Lookups,
-		"MCacheInuse":   memStats.MCacheInuse,
-		"MCacheSys":     memStats.MCacheSys,
-		"MSpanInuse":    memStats.MSpanInuse,
-		"MSpanSys":      memStats.MSpanSys,
-		"Mallocs":       memStats.Mallocs,
-		"NextGC":        memStats.NextGC,
-		"NumForcedGC":   memStats.NumForcedGC,
-		"NumGC":         memStats.NumGC,
-		"OtherSys":      memStats.OtherSys,
-		"PauseTotalNs":  memStats.PauseTotalNs,
-		"StackInuse":    memStats.StackInuse,
-		"StackSys":      memStats.StackSys,
-		"Sys":           memStats.Sys,
-		"TotalAlloc":    memStats.TotalAlloc,
-	}
-}
-
 // CollectMetrics собирает runtime-метрики Go (memory stats) и записывает их в storage.
 // Вызывается периодически агентом по таймеру PollInterval.
 func CollectMetrics(storage MetricStorage) {

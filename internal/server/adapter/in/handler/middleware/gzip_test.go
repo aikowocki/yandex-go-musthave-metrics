@@ -17,16 +17,16 @@ func TestWithGzip_CompressResponse(t *testing.T) {
 	tests := []struct {
 		name           string
 		acceptEncoding string
-		expectGzip     bool
+		wantGzip       bool
 	}{
 		{
 			name:           "with gzip",
 			acceptEncoding: EncodingGzip,
-			expectGzip:     true,
+			wantGzip:       true,
 		}, {
 			name:           "without gzip",
 			acceptEncoding: "",
-			expectGzip:     false,
+			wantGzip:       false,
 		},
 	}
 
@@ -51,7 +51,7 @@ func TestWithGzip_CompressResponse(t *testing.T) {
 
 			assert.Equal(t, http.StatusOK, res.StatusCode)
 			contentEncoding := res.Header.Get(constants.HeaderContentEncoding)
-			if tt.expectGzip {
+			if tt.wantGzip {
 				assert.Equal(t, EncodingGzip, contentEncoding)
 			} else {
 				assert.Empty(t, contentEncoding)

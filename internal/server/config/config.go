@@ -19,13 +19,14 @@ type ServerConfig struct {
 	FileStoragePath string  `env:"FILE_STORAGE_PATH" json:"store_file"`
 	Restore         bool    `env:"RESTORE"           json:"restore"`
 	DB              *db.Config
-	Key             string `env:"KEY"               json:"key"`
-	CryptoKey       string `env:"CRYPTO_KEY"        json:"crypto_key"`
-	AuditFile       string `env:"AUDIT_FILE"        json:"audit_file"`
-	AuditURL        string `env:"AUDIT_URL"         json:"audit_url"`
-	PprofAddress    string `env:"PPROF_ADDRESS"     json:"pprof_address"`
-	TrustedSubnet   string `env:"TRUSTED_SUBNET"    json:"trusted_subnet"`
-	ConfigFile      string `env:"CONFIG"            json:"-"`
+	Key             string `env:"KEY"                json:"key"`
+	CryptoKey       string `env:"CRYPTO_KEY"         json:"crypto_key"`
+	AuditFile       string `env:"AUDIT_FILE"         json:"audit_file"`
+	AuditURL        string `env:"AUDIT_URL"          json:"audit_url"`
+	PprofAddress    string `env:"PPROF_ADDRESS"      json:"pprof_address"`
+	TrustedSubnet   string `env:"TRUSTED_SUBNET"     json:"trusted_subnet"`
+	ConfigFile      string `env:"CONFIG"             json:"-"`
+	GRPCAddress     string `env:"GRPC_ADDRESS"       json:"grpc_address"`
 }
 
 // UnmarshalJSON Поле database_dsn лежит в JSON на верхнем уровне, а в структуре
@@ -75,6 +76,7 @@ func parseServerConfig(args []string, environ map[string]string) (*ServerConfig,
 	fs.StringVar(&cfg.ConfigFile, "config", "", "path to JSON config file")
 	fs.StringVar(&cfg.DB.DatabaseDSN, "d", "", "database connection DSN")
 	fs.StringVar(&cfg.DB.PostgresDriver, "pgx", "pgx", "database driver (pgx)")
+	fs.StringVar(&cfg.GRPCAddress, "grpc-address", "", "gRPC server address (empty disable gRPC server)")
 
 	// #1 парс: нужен, чтобы узнать путь к JSON-конфигу из флага -c/-config.
 	// Парсим сразу весь набор флагов (а не отдельный FlagSet только с -c),

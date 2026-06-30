@@ -22,6 +22,8 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/pkg/retry"
 	"github.com/go-resty/resty/v2"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var gzipWriterPool = pool.NewFunc(
@@ -67,7 +69,7 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 	if c.cryptoKeyPath != "" {
 		pub, err := pkgcrypto.LoadPublicKey(c.cryptoKeyPath)
 		if err != nil {
-			zap.S().Fatalw("filed to load RSA public key", "path", c.cryptoKeyPath, "error", err)
+			zap.S().Fatalw("failed to load RSA public key", "path", c.cryptoKeyPath, "error", err)
 		}
 		c.publicKey = pub
 		zap.S().Infow("RSA encryption enabled", "key", c.cryptoKeyPath)
@@ -231,18 +233,42 @@ func CollectBatch(storage MetricStorage) []api.MetricDTO {
 	return metrics
 }
 
-// SendBatch отправляет пачку метрик на сервер с retry-логикой при сетевых ошибках.
-func SendBatch(ctx context.Context, client *Client, metrics []api.MetricDTO) {
+// MetricSender абстрагирует транспорт отправки метрик (HTTP или gRPC).
+// Интерфейс объявлен на стороне потребителя (SendBatch), поэтому конкретные
+// реализации (*Client, *GRPCClient) не зависят от него напрямую.
+type MetricSender interface {
+	SendMetrics(ctx context.Context, metrics []api.MetricDTO) error
+	Close() error
+}
+
+// SendBatch отправляет пачку метрик через выбранный транспорт с retry-логикой
+// при временных сетевых ошибках. Транспорт скрыт за MetricSender.
+func SendBatch(ctx context.Context, sender MetricSender, metrics []api.MetricDTO) {
 	zap.S().Debugw("sending metrics batch to server")
-	if len(metrics) > 0 {
-		send := func() error { return client.SendMetrics(metrics) }
-		retrierCondition := func(err error) bool {
-			var netErr *net.OpError
-			return errors.As(err, &netErr)
-		}
-		if err := retry.Do(ctx, send, retry.WithRetryIf(retrierCondition)); err != nil {
-			zap.S().Errorw("failed to send metrics", zap.Error(err))
-		}
+	if len(metrics) == 0 {
+		return
+	}
+	send := func() error { return sender.SendMetrics(ctx, metrics) }
+	if err := retry.Do(ctx, send, retry.WithRetryIf(isRetriable)); err != nil {
+		zap.S().Errorw("failed to send metrics", zap.Error(err))
+	}
+}
+
+// isRetriable распознаёт временные ошибки обоих транспортов:
+//   - HTTP: *net.OpError (сервер недоступен, обрыв соединения);
+//   - gRPC: коды Unavailable / DeadlineExceeded.
+//
+// Прикладные ошибки (HTTP 500, gRPC InvalidArgument и т.п.) не ретраятся.
+func isRetriable(err error) bool {
+	var netErr *net.OpError
+	if errors.As(err, &netErr) {
+		return true
+	}
+	switch status.Code(err) {
+	case codes.Unavailable, codes.DeadlineExceeded:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -277,10 +303,10 @@ func (c *Client) SendMetricJSON(dto api.MetricDTO) error {
 	return nil
 }
 
-func (c *Client) SendMetrics(dtos []api.MetricDTO) error {
+func (c *Client) SendMetrics(ctx context.Context, dtos []api.MetricDTO) error {
 	url := fmt.Sprintf("%s/updates", c.serverURL)
 
-	resp, err := c.restyClient.R().SetBody(dtos).Post(url)
+	resp, err := c.restyClient.R().SetContext(ctx).SetBody(dtos).Post(url)
 	if err != nil {
 		return fmt.Errorf("failed to send metrics: %w", err)
 	}
@@ -289,5 +315,11 @@ func (c *Client) SendMetrics(dtos []api.MetricDTO) error {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 	}
 
+	return nil
+}
+
+// Close реализует MetricSender. HTTP-клиент не держит постоянного соединения,
+// поэтому закрывать нечего — метод нужен для единообразия с gRPC-клиентом.
+func (c *Client) Close() error {
 	return nil
 }

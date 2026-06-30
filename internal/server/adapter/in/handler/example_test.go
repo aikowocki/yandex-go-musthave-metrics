@@ -1,4 +1,4 @@
-package handler_test
+package handler
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/in/handler"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/adapter/out/memory"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/entity"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/usecase"
@@ -25,7 +24,7 @@ func newExampleUseCase() *usecase.MetricUseCase {
 // ExampleMetricJSONHandler_Update демонстрирует обновление gauge-метрики через JSON API.
 func ExampleMetricJSONHandler_Update() {
 	uc := newExampleUseCase()
-	h := handler.NewMetricJSONHandler(uc, nil)
+	h := NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Post("/update", h.Update)
 
@@ -46,7 +45,7 @@ func ExampleMetricJSONHandler_Get() {
 	uc := newExampleUseCase()
 	_ = uc.Save(context.Background(), entity.NewGaugeMetric("temperature", 36.6))
 
-	h := handler.NewMetricJSONHandler(uc, nil)
+	h := NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Post("/value", h.Get)
 
@@ -65,7 +64,7 @@ func ExampleMetricJSONHandler_Get() {
 // ExampleMetricJSONHandler_BatchUpdate демонстрирует пакетное обновление метрик.
 func ExampleMetricJSONHandler_BatchUpdate() {
 	uc := newExampleUseCase()
-	h := handler.NewMetricJSONHandler(uc, nil)
+	h := NewMetricJSONHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Post("/updates", h.BatchUpdate)
 
@@ -85,7 +84,7 @@ func ExampleMetricJSONHandler_BatchUpdate() {
 // ExampleMetricHandler_Update демонстрирует обновление метрики через URL-параметры.
 func ExampleMetricHandler_Update() {
 	uc := newExampleUseCase()
-	h := handler.NewMetricHandler(uc, nil)
+	h := NewMetricHandler(uc, nil)
 	r := chi.NewRouter()
 	r.Post("/update/{type}/{name}/{value}", h.Update)
 

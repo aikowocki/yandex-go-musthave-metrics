@@ -31,6 +31,8 @@ func TestHTTPObserver_PostsJSON(t *testing.T) {
 		IPAddress: "192.168.1.1",
 	}
 
+	assert.Equal(t, "http:"+srv.URL, obs.Name())
+
 	err := obs.Notify(t.Context(), event)
 	require.NoError(t, err)
 	assert.Equal(t, event, received)

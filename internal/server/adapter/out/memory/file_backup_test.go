@@ -176,3 +176,63 @@ func TestFileBackup_StartDisabledWhenIntervalZero(t *testing.T) {
 	_, statErr := os.Stat(path)
 	assert.True(t, os.IsNotExist(statErr), "no background save expected when interval is 0")
 }
+
+// TestFileBackup_RestoreCorruptJSON проверяет, что битый файл бэкапа
+// возвращает ошибку, а не паникует и не затирает storage молча.
+func TestFileBackup_RestoreCorruptJSON(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "corrupt.json")
+	require.NoError(t, os.WriteFile(path, []byte("{not valid json"), 0644))
+
+	backup := NewFileBackup(path, NewMetricStorage(), 0)
+	assert.Error(t, backup.Restore())
+}
+
+// TestFileBackup_RestoreSkipsNilPayload проверяет, что DTO без значения
+// (gauge с nil value, counter с nil delta) пропускаются при восстановлении.
+func TestFileBackup_RestoreSkipsNilPayload(t *testing.T) {
+	ctx := t.Context()
+	path := filepath.Join(t.TempDir(), "partial.json")
+
+	// gauge без value и counter без delta должны быть пропущены,
+	// а валидная метрика — восстановлена.
+	good := 3.14
+	content := `[
+		{"id":"broken_gauge","type":"gauge"},
+		{"id":"broken_counter","type":"counter"},
+		{"id":"good_gauge","type":"gauge","value":3.14}
+	]`
+	require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+
+	store := NewMetricStorage()
+	backup := NewFileBackup(path, store, 0)
+	require.NoError(t, backup.Restore())
+
+	// Валидная метрика на месте.
+	g, err := store.GetGauge(ctx, "good_gauge")
+	require.NoError(t, err)
+	assert.Equal(t, good, g)
+
+	// Битые — отсутствуют.
+	_, err = store.GetGauge(ctx, "broken_gauge")
+	assert.Error(t, err)
+	_, err = store.GetCounter(ctx, "broken_counter")
+	assert.Error(t, err)
+}
+
+// TestFileBackup_SaveMkdirError проверяет ветку ошибки Save, когда каталог
+// для файла создать нельзя (на пути встречается обычный файл, а не директория).
+func TestFileBackup_SaveMkdirError(t *testing.T) {
+	ctx := t.Context()
+	// Создаём файл и пытаемся положить бэкап "внутрь" него:
+	// filepath.Dir(path) указывает на файл → MkdirAll вернёт ошибку.
+	blocker := filepath.Join(t.TempDir(), "iam_a_file")
+	require.NoError(t, os.WriteFile(blocker, []byte("x"), 0644))
+
+	path := filepath.Join(blocker, "backup.json")
+	store := NewMetricStorage()
+	_, err := store.UpdateGauge(ctx, "cpu", 1.0)
+	require.NoError(t, err)
+
+	backup := NewFileBackup(path, store, 0)
+	assert.Error(t, backup.Save())
+}

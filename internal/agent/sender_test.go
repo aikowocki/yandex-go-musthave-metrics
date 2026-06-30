@@ -2,6 +2,9 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,7 +15,13 @@ import (
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+// ptr возвращает указатель на значение — для заполнения опциональных
+// полей api.MetricDTO (Value/Delta).
+func ptr[T any](v T) *T { return &v }
 
 func TestClient_SendMetric_Success(t *testing.T) {
 	// Создаём фейковый HTTP-сервер
@@ -20,7 +29,7 @@ func TestClient_SendMetric_Success(t *testing.T) {
 		// Эта функция вызывается когда клиент делает запрос
 
 		// Проверяем что метод POST
-		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, http.MethodPost, r.Method)
 
 		// Проверяем что URL правильный
 		assert.Equal(t, "/update/gauge/test/3.14", r.URL.Path)
@@ -103,9 +112,9 @@ func TestClient_SendMetrics_Success(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetrics([]api.MetricDTO{
-		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 3.14; return &v }()},
-		{ID: "hits", MType: "counter", Delta: func() *int64 { v := int64(5); return &v }()},
+	err := client.SendMetrics(t.Context(), []api.MetricDTO{
+		{ID: "cpu", MType: "gauge", Value: ptr(3.14)},
+		{ID: "hits", MType: "counter", Delta: ptr(int64(5))},
 	})
 
 	assert.NoError(t, err)
@@ -119,8 +128,8 @@ func TestClient_SendMetrics_ServerError(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL)
-	err := client.SendMetrics([]api.MetricDTO{
-		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
+	err := client.SendMetrics(t.Context(), []api.MetricDTO{
+		{ID: "cpu", MType: "gauge", Value: ptr(1.0)},
 	})
 
 	assert.Error(t, err)
@@ -170,7 +179,7 @@ func TestSendBatch_NoRetryOnServerError(t *testing.T) {
 	defer server.Close()
 
 	metrics := []api.MetricDTO{
-		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
+		{ID: "cpu", MType: "gauge", Value: ptr(1.0)},
 	}
 
 	client := NewClient(server.URL)
@@ -192,7 +201,7 @@ func TestSendBatch_RetriesOnNetworkError(t *testing.T) {
 	server.Close()
 
 	metrics := []api.MetricDTO{
-		{ID: "cpu", MType: "gauge", Value: func() *float64 { v := 1.0; return &v }()},
+		{ID: "cpu", MType: "gauge", Value: ptr(1.0)},
 	}
 
 	// Отменяемый контекст: после первой неудачной попытки прерываем,
@@ -212,5 +221,30 @@ func TestSendBatch_RetriesOnNetworkError(t *testing.T) {
 		// SendBatch завершился (по исчерпанию попыток или по ctx) — ок.
 	case <-time.After(2 * time.Second):
 		t.Fatal("SendBatch did not return in time on network error")
+	}
+}
+
+// TestIsRetriable проверяет, что предикат ретраев распознаёт временные ошибки
+// обоих транспортов (HTTP *net.OpError и gRPC Unavailable/DeadlineExceeded)
+// и не ретраит прикладные ошибки.
+func TestIsRetriable(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil", nil, false},
+		{"http net.OpError", &net.OpError{Op: "dial", Err: errors.New("connection refused")}, true},
+		{"wrapped net.OpError", fmt.Errorf("send: %w", &net.OpError{Op: "dial", Err: errors.New("x")}), true},
+		{"grpc unavailable", status.Error(codes.Unavailable, "server down"), true},
+		{"grpc deadline exceeded", status.Error(codes.DeadlineExceeded, "timeout"), true},
+		{"grpc invalid argument", status.Error(codes.InvalidArgument, "bad input"), false},
+		{"plain error (http 500)", errors.New("unexpected status code: 500"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isRetriable(tt.err))
+		})
 	}
 }

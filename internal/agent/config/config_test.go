@@ -28,6 +28,7 @@ func TestParseAgentConfig_Defaults(t *testing.T) {
 	assert.Equal(t, 2*time.Second, time.Duration(cfg.PollInterval))
 	assert.Equal(t, 1, cfg.RateLimit)
 	assert.Equal(t, "localhost:6061", cfg.PprofAddress)
+	assert.Empty(t, cfg.GRPCAddress)
 }
 
 func TestParseAgentConfig_JSONFile(t *testing.T) {
@@ -38,7 +39,8 @@ func TestParseAgentConfig_JSONFile(t *testing.T) {
 		"key": "json-key",
 		"crypto_key": "/json/key.pem",
 		"rate_limit": 7,
-		"pprof_address": "localhost:7777"
+		"pprof_address": "localhost:7777",
+		"grpc_address": "localhost:3200"
 	}`)
 
 	cfg, err := parseAgentConfig([]string{"-c", path}, nil)
@@ -51,6 +53,7 @@ func TestParseAgentConfig_JSONFile(t *testing.T) {
 	assert.Equal(t, "/json/key.pem", cfg.CryptoKey)
 	assert.Equal(t, 7, cfg.RateLimit)
 	assert.Equal(t, "localhost:7777", cfg.PprofAddress)
+	assert.Equal(t, "localhost:3200", cfg.GRPCAddress)
 }
 
 // TestParseAgentConfig_PartialJSON проверяет, что поля, отсутствующие в JSON,
@@ -90,14 +93,16 @@ func TestParseAgentConfig_AllLayers(t *testing.T) {
 	environ := map[string]string{
 		"ADDRESS":         "env-addr:2222",
 		"REPORT_INTERVAL": "11",
+		"GRPC_ADDRESS":    "env-grpc:4200",
 	}
 
-	cfg, err := parseAgentConfig([]string{"-c", path, "-p", "22"}, environ)
+	cfg, err := parseAgentConfig([]string{"-c", path, "-p", "22", "-grpc-address", "flag-grpc:3200"}, environ)
 	require.NoError(t, err)
 
 	assert.Equal(t, "env-addr:2222", cfg.ServerAddress, "env > flag/JSON")
 	assert.Equal(t, 11*time.Second, time.Duration(cfg.ReportInterval), "env > JSON")
 	assert.Equal(t, 22*time.Second, time.Duration(cfg.PollInterval), "flag > JSON")
+	assert.Equal(t, "env-grpc:4200", cfg.GRPCAddress, "env > flag")
 	assert.Equal(t, "json-key", cfg.Key, "JSON применяется когда нет flag/env")
 	assert.Equal(t, "localhost:6061", cfg.PprofAddress, "дефолт когда нигде не задано")
 }

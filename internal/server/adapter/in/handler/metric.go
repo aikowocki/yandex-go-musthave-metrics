@@ -48,6 +48,7 @@ func (h *baseMetricHandler) publishAudit(r *http.Request, names []string) {
 		Timestamp: time.Now().Unix(),
 		Metrics:   names,
 		IPAddress: clientIP(r),
+		Transport: "http",
 	})
 }
 

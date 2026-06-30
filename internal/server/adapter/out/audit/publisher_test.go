@@ -85,3 +85,34 @@ func TestPublisher_PublishAfterClose(t *testing.T) {
 	pub.Publish(entity.AuditEvent{Timestamp: 1, Metrics: []string{"x"}, IPAddress: "1.1.1.1"})
 	assert.Empty(t, obs.got())
 }
+
+// erroringObserver всегда возвращает ошибку из Notify — проверяем, что
+// dispatch не падает, а логирует и продолжает работу.
+type erroringObserver struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (e *erroringObserver) Notify(context.Context, entity.AuditEvent) error {
+	e.mu.Lock()
+	e.calls++
+	e.mu.Unlock()
+	return assert.AnError
+}
+
+func (e *erroringObserver) Name() string { return "erroring" }
+
+func TestPublisher_NotifyErrorDoesNotCrash(t *testing.T) {
+	obs := &erroringObserver{}
+	pub := NewPublisher(obs)
+
+	pub.Publish(entity.AuditEvent{Timestamp: 1, Metrics: []string{"m"}, IPAddress: "1.2.3.4"})
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	require.NoError(t, pub.Close(ctx))
+
+	obs.mu.Lock()
+	defer obs.mu.Unlock()
+	assert.Equal(t, 1, obs.calls, "observer should be notified despite returning error")
+}

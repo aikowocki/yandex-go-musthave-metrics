@@ -8,5 +8,7 @@
     "crypto_key": "/path/to/key.pem",
     "audit_file": "",
     "audit_url": "",
-    "pprof_address": "localhost:6060"
+    "pprof_address": "localhost:6060",
+    "trusted_subnet": "",
+    "grpc_address": ""
 }

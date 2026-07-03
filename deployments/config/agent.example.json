@@ -5,5 +5,6 @@
     "key": "",
     "crypto_key": "/path/to/key.pem",
     "rate_limit": 1,
-    "pprof_address": "localhost:6061"
+    "pprof_address": "localhost:6061",
+    "grpc_address": ""
 }

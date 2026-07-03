@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - metrics-net
 
   server:
     build:
@@ -30,6 +32,7 @@ services:
     ports:
       - "8080:8080"
       - "6060:6060"
+      - "3200:3200"
     environment:
       ADDRESS: 0.0.0.0:8080
       DATABASE_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
@@ -41,15 +44,19 @@ services:
       AUDIT_FILE: ${AUDIT_FILE:-}
       AUDIT_URL: ${AUDIT_URL:-}
       PPROF_ADDRESS: 0.0.0.0:6060
+      GRPC_ADDRESS: ${GRPC_ADDRESS:-}
       CONFIG: /etc/metrics/server.json
+      TRUSTED_SUBNET: ${TRUSTED_SUBNET:-}
     volumes:
-      - server_data:/data
+      - ./data:/data
       - ${KEYS_DIR:-./keys}:/keys:ro
       - ./config/server.json:/etc/metrics/server.json:ro
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - metrics-net
 
   agent:
     build:
@@ -70,6 +77,7 @@ services:
       KEY: ${KEY:-}
       CRYPTO_KEY: ${AGENT_CRYPTO_KEY:-}
       RATE_LIMIT: ${RATE_LIMIT:-5}
+      GRPC_ADDRESS: ${AGENT_GRPC_ADDRESS:-}
       CONFIG: /etc/metrics/agent.json
     volumes:
       - ${KEYS_DIR:-./keys}:/keys:ro
@@ -77,7 +85,15 @@ services:
     depends_on:
       - server
     restart: unless-stopped
+    networks:
+      - metrics-net
 
 volumes:
   postgres_data:
-  server_data:
+
+networks:
+  metrics-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

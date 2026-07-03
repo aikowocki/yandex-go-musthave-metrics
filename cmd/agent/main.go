@@ -18,6 +18,7 @@ import (
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/logger"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 var (
@@ -50,14 +51,14 @@ func main() {
 	cfg, err := config.NewAgentConfig()
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			log.Fatal("failed to load .env", err)
+			zap.S().Fatalw("failed to load .env config", "error", err)
 		}
 	}
 
 	go func() {
-		log.Println("pprof starting", cfg.PprofAddress)
-		if err := http.ListenAndServe(cfg.PprofAddress, nil); err != nil {
-			log.Println("pprof server failed", err)
+		zap.S().Infow("pprof starting", "address", cfg.PprofAddress)
+		if pprofErr := http.ListenAndServe(cfg.PprofAddress, nil); pprofErr != nil {
+			zap.S().Errorw("pprof server failed", "error", pprofErr)
 		}
 	}()
 
@@ -66,7 +67,27 @@ func main() {
 	if cfg.CryptoKey != "" {
 		clientOpts = append(clientOpts, agent.WithCryptoKey(cfg.CryptoKey))
 	}
-	client := agent.NewClient("http://"+cfg.ServerAddress, clientOpts...)
+
+	var sender agent.MetricSender
+
+	if cfg.GRPCAddress != "" {
+		ip := agent.OutboundIP(cfg.GRPCAddress)
+		grpcClient, err := agent.NewGRPCClient(cfg.GRPCAddress, ip)
+		if err != nil {
+			zap.S().Fatalw("failed to create gRPC client", "error", err)
+		}
+		sender = grpcClient
+	} else {
+		serverURL := "http://" + cfg.ServerAddress
+		ip := agent.OutboundIP(serverURL)
+		sender = agent.NewClient(serverURL, ip, clientOpts...)
+	}
+	// Закрываем транспорт после остановки воркеров (graceful path).
+	defer func() {
+		if err := sender.Close(); err != nil {
+			zap.S().Errorw("failed to close sender", "error", err)
+		}
+	}()
 
 	jobs := make(chan []api.MetricDTO, cfg.RateLimit)
 
@@ -79,7 +100,7 @@ func main() {
 	for i := 0; i < cfg.RateLimit; i++ {
 		wgWorkers.Go(func() {
 			for job := range jobs {
-				agent.SendBatch(ctx, client, job)
+				agent.SendBatch(ctx, sender, job)
 			}
 		})
 	}
@@ -134,7 +155,7 @@ func main() {
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sigCh
-	log.Println("shutting down gracefully, press Ctrl+C again to force exit")
+	zap.S().Infow("shutting down gracefully, press Ctrl+C again to force exit")
 
 	cancel() // сигнализируем всем горутинам остановиться
 
@@ -154,7 +175,7 @@ func main() {
 	case <-sigCh:
 		// второй сигнал пришёл раньше — выходим немедленно.
 		// os.Exit не выполняет defer (loggerCleanup, cancel) т.к форсим завершение.
-		log.Println("forced exit")
+		zap.S().Warnw("forced exit")
 		os.Exit(1)
 	}
 }

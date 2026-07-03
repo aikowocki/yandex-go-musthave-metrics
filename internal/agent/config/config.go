@@ -21,6 +21,7 @@ type AgentConfig struct {
 	RateLimit      int     `env:"RATE_LIMIT"      json:"rate_limit"`
 	PprofAddress   string  `env:"PPROF_ADDRESS"   json:"pprof_address"`
 	ConfigFile     string  `env:"CONFIG"          json:"-"`
+	GRPCAddress    string  `env:"GRPC_ADDRESS"    json:"grpc_address"`
 }
 
 // NewAgentConfig собирает конфигурацию агента
@@ -49,6 +50,7 @@ func parseAgentConfig(args []string, environ map[string]string) (*AgentConfig, e
 	fs.StringVar(&cfg.PprofAddress, "pprof-address", "localhost:6061", "pprof server address")
 	fs.StringVar(&cfg.ConfigFile, "c", "", "path to JSON config file")
 	fs.StringVar(&cfg.ConfigFile, "config", "", "path to JSON config file")
+	fs.StringVar(&cfg.GRPCAddress, "grpc-address", "", "gRPC server address (empty disable gRPC sending)")
 
 	// #1 парс: нужен, чтобы узнать путь к JSON-конфигу из флага -c/-config.
 	// Парсим сразу весь набор флагов (а не отдельный FlagSet только с -c),

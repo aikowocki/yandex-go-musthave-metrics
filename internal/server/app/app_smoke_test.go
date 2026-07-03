@@ -1,4 +1,4 @@
-package app_test
+package app
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/api"
-	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/app"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/config"
 	"github.com/aikowocki/yandex-go-musthave-metrics/internal/server/config/db"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +28,7 @@ func TestServerApp_Smoke(t *testing.T) {
 		PprofAddress:    "localhost:16060",
 	}
 
-	application, err := app.NewServerApp(ctx, cfg)
+	application, err := NewServerApp(ctx, cfg)
 	require.NoError(t, err)
 
 	go application.Run(ctx)

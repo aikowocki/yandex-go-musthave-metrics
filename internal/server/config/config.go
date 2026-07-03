@@ -19,12 +19,14 @@ type ServerConfig struct {
 	FileStoragePath string  `env:"FILE_STORAGE_PATH" json:"store_file"`
 	Restore         bool    `env:"RESTORE"           json:"restore"`
 	DB              *db.Config
-	Key             string `env:"KEY"               json:"key"`
-	CryptoKey       string `env:"CRYPTO_KEY"        json:"crypto_key"`
-	AuditFile       string `env:"AUDIT_FILE"        json:"audit_file"`
-	AuditURL        string `env:"AUDIT_URL"         json:"audit_url"`
-	PprofAddress    string `env:"PPROF_ADDRESS"     json:"pprof_address"`
-	ConfigFile      string `env:"CONFIG"            json:"-"`
+	Key             string `env:"KEY"                json:"key"`
+	CryptoKey       string `env:"CRYPTO_KEY"         json:"crypto_key"`
+	AuditFile       string `env:"AUDIT_FILE"         json:"audit_file"`
+	AuditURL        string `env:"AUDIT_URL"          json:"audit_url"`
+	PprofAddress    string `env:"PPROF_ADDRESS"      json:"pprof_address"`
+	TrustedSubnet   string `env:"TRUSTED_SUBNET"     json:"trusted_subnet"`
+	ConfigFile      string `env:"CONFIG"             json:"-"`
+	GRPCAddress     string `env:"GRPC_ADDRESS"       json:"grpc_address"`
 }
 
 // UnmarshalJSON Поле database_dsn лежит в JSON на верхнем уровне, а в структуре
@@ -69,10 +71,12 @@ func parseServerConfig(args []string, environ map[string]string) (*ServerConfig,
 	fs.StringVar(&cfg.AuditFile, "audit-file", "", "path to audit log file (empty disable file audit)")
 	fs.StringVar(&cfg.AuditURL, "audit-url", "", "URL for HTTP audit sink (empty disable HTTP audit)")
 	fs.StringVar(&cfg.PprofAddress, "pprof-address", "localhost:6060", "pprof address")
+	fs.StringVar(&cfg.TrustedSubnet, "t", "", "trusted subnet (CIDR) (empty disables check)")
 	fs.StringVar(&cfg.ConfigFile, "c", "", "path to JSON config file")
 	fs.StringVar(&cfg.ConfigFile, "config", "", "path to JSON config file")
 	fs.StringVar(&cfg.DB.DatabaseDSN, "d", "", "database connection DSN")
 	fs.StringVar(&cfg.DB.PostgresDriver, "pgx", "pgx", "database driver (pgx)")
+	fs.StringVar(&cfg.GRPCAddress, "grpc-address", "", "gRPC server address (empty disable gRPC server)")
 
 	// #1 парс: нужен, чтобы узнать путь к JSON-конфигу из флага -c/-config.
 	// Парсим сразу весь набор флагов (а не отдельный FlagSet только с -c),

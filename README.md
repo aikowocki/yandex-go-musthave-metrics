@@ -151,11 +151,15 @@ go test -bench=. -benchmem -count=3 ./internal/...
 
 ## Покрытие тестами
 
-Общее покрытие: **62.0%** (с `-coverpkg=./...` для учёта кросс-пакетных вызовов)
+Общее покрытие: **72.4%** (175 тестов + 4 примера + 22 бенчмарка, 19 пакетов с тестами, подсчёт с `-coverpkg=./...`)
+
+> При подсчёте без `-coverpkg` цифра — per-package (см. таблицу ниже), без учёта сквозных тестов.
+> С `-coverpkg=./...` сквозные тесты (smoke, integration) засчитываются как покрытие кода в других пакетах.
 
 ### Состав тестов
 
-- **Unit** — domain-сущности (`entity`), хранилища, usecase, хендлеры, middleware (gzip, hash), audit-публишеры, утилиты `pkg/*`
+- **Unit** — domain-сущности (`entity`), хранилища, usecase, хендлеры, middleware (gzip, hash, trusted_subnet), audit-публишеры, утилиты `pkg/*`
+- **gRPC** — interceptors (TrustedSubnet, Logging, Recovery), MetricService, protoToEntity маппер
 - **Contract** — общий набор `runStorageTests` прогоняется и на `MetricStore`, и на `SyncBackupStorage`
 - **Concurrency** — параллельная нагрузка (50 горутин × 100 операций) на `LocalMetrics` (агент) и `MetricStore` (сервер), проверяется детектором гонок (`-race`)
 - **Backup** — синхронное и фоновое (по тикеру) сохранение, восстановление из файла, сохранение по отмене `context`
@@ -171,7 +175,7 @@ go test ./...
 # С детектором гонок (concurrency-тесты)
 go test -race ./...
 
-# Запуск тестов с покрытием
+# Покрытие (сквозное — сквозные тесты засчитываются во все пакеты)
 go test ./... -coverprofile=coverage.out -coverpkg=./...
 
 # HTML-отчёт в браузере
@@ -185,22 +189,29 @@ go tool cover -func=coverage.out | tail -1
 
 | Пакет | Покрытие |
 |---|---|
-| `pkg/pool` | 100% |
 | `pkg/hash` | 100% |
 | `pkg/retry` | 100% |
 | `internal/server/entity` | 100% |
+| `internal/server/adapter/in/grpcserver/interceptor` | 100% |
 | `cmd/staticlint/exitcheck` | 95.2% |
+| `internal/server/adapter/in/handler/middleware` | 91.3% |
 | `internal/server/usecase` | 90.9% |
-| `internal/server/adapter/out/audit` | 86.2% |
-| `internal/agent` | 74.1% |
-| `internal/server/adapter/in/handler` | 70.4% |
-| `internal/server/adapter/in/handler/middleware` | 67.0% |
-| `internal/server/adapter/out/memory` | 62.3% |
-| `internal/server/app` | 50.9% |
+| `internal/server/adapter/out/audit` | 90.0% |
+| `internal/agent` | 89.0% |
+| `internal/server/config` | 88.1% |
+| `internal/agent/config` | 86.7% |
+| `internal/duration` | 86.7% |
+| `internal/server/adapter/in/handler` | 83.0% |
+| `pkg/crypto` | 82.4% |
+| `pkg/pool` | 81.2% |
+| `internal/server/adapter/out/memory` | 79.5% |
+| `internal/server/app` | 75.3% |
+| `internal/server/adapter/in/grpcserver` | 70.5% |
 
 ### Не покрыто (осознанно)
 
+- `pkg/proto` — сгенерированный protobuf-код, не подлежит ручному тестированию
 - `cmd/*` — main-пакеты, покрываются автотестами Практикума
 - `internal/logger` — инициализация инфраструктуры (zap + файлы)
-- `internal/server/config` — `flag.Parse()` делает unit-тестирование невозможным
-- `postgres/pgx` — покрывается интеграционными тестами через testcontainers (учитывается с `-coverpkg`)
+- `postgres/pgx` — покрывается интеграционными тестами через testcontainers
+- `grpcserver/server.go` (New, ListenAndServe, Shutdown) — lifecycle-код, покрывается smoke/integration тестами

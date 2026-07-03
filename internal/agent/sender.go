@@ -57,7 +57,7 @@ type Client struct {
 }
 
 // NewClient создаёт нового клиента для отправки метрик на указанный сервер.
-func NewClient(serverURL string, opts ...ClientOption) *Client {
+func NewClient(serverURL string, ip string, opts ...ClientOption) *Client {
 	c := &Client{
 		serverURL: serverURL,
 	}
@@ -126,7 +126,7 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 
 	// X-Real-IP — исходящий IP-адрес хоста агента, по которому сервер
 	// проверяет принадлежность к доверенной подсети.
-	if ip := outboundIP(serverURL); ip != "" {
+	if ip != "" {
 		// по идее выставление этого заголовка в проде на плечах nginx/Traefik/...
 		restyClient.SetHeader("X-Real-IP", ip)
 	}
@@ -134,10 +134,10 @@ func NewClient(serverURL string, opts ...ClientOption) *Client {
 	return c
 }
 
-// outboundIP определяет исходящий IP-адрес хоста, который ОС выберет для
+// OutboundIP определяет исходящий IP-адрес хоста, который ОС выберет для
 // соединения с сервером. UDP-«соединение» реально пакеты не отправляет,
 // но заставляет ядро выбрать сетевой интерфейс и локальный адрес.
-func outboundIP(serverURL string) string {
+func OutboundIP(serverURL string) string {
 	host := serverURL
 	if u, err := url.Parse(serverURL); err == nil && u.Host != "" {
 		host = u.Host

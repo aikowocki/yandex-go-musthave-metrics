@@ -51,7 +51,7 @@ func main() {
 	cfg, err := config.NewAgentConfig()
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			log.Fatal("failed to load .env", err)
+			zap.S().Fatalw("failed to load .env config", "error", err)
 		}
 	}
 
@@ -71,13 +71,16 @@ func main() {
 	var sender agent.MetricSender
 
 	if cfg.GRPCAddress != "" {
-		grpcClient, err := agent.NewGRPCClient(cfg.GRPCAddress)
+		ip := agent.OutboundIP(cfg.GRPCAddress)
+		grpcClient, err := agent.NewGRPCClient(cfg.GRPCAddress, ip)
 		if err != nil {
-			log.Fatal("failed to create gRPC client", err)
+			zap.S().Fatalw("failed to create gRPC client", "error", err)
 		}
 		sender = grpcClient
 	} else {
-		sender = agent.NewClient("http://"+cfg.ServerAddress, clientOpts...)
+		serverURL := "http://" + cfg.ServerAddress
+		ip := agent.OutboundIP(serverURL)
+		sender = agent.NewClient(serverURL, ip, clientOpts...)
 	}
 	// Закрываем транспорт после остановки воркеров (graceful path).
 	defer func() {
@@ -152,7 +155,7 @@ func main() {
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sigCh
-	log.Println("shutting down gracefully, press Ctrl+C again to force exit")
+	zap.S().Infow("shutting down gracefully, press Ctrl+C again to force exit")
 
 	cancel() // сигнализируем всем горутинам остановиться
 
@@ -172,7 +175,7 @@ func main() {
 	case <-sigCh:
 		// второй сигнал пришёл раньше — выходим немедленно.
 		// os.Exit не выполняет defer (loggerCleanup, cancel) т.к форсим завершение.
-		log.Println("forced exit")
+		zap.S().Warnw("forced exit")
 		os.Exit(1)
 	}
 }

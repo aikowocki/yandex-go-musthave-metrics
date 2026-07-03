@@ -42,7 +42,7 @@ func TestClient_SendMetric_Success(t *testing.T) {
 	defer server.Close()
 
 	// Создаём клиента с адресом mock-сервера
-	client := NewClient(server.URL) // server.URL = "http://127.0.0.1:12345" (случайный порт)
+	client := NewClient(server.URL, "") // server.URL = "http://127.0.0.1:12345" (случайный порт)
 
 	// Вызываем тестируемую функцию
 	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
@@ -57,14 +57,14 @@ func TestClient_SendMetric_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
 
 	assert.Error(t, err)
 }
 
 func TestClient_SendMetric_InvalidURL(t *testing.T) {
-	client := NewClient("ht!tp://invalid") // невалидный URL
+	client := NewClient("ht!tp://invalid", "") // невалидный URL
 	err := client.SendMetric(api.MetricTypeGauge, "test", "3.14")
 	assert.Error(t, err)
 }
@@ -90,7 +90,7 @@ func TestReport(t *testing.T) {
 	storage.SetGauge("test", 3.14)
 	storage.AddCounter("count", 5)
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	Report(storage, client)
 
 	mu.Lock()
@@ -111,7 +111,7 @@ func TestClient_SendMetrics_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	err := client.SendMetrics(t.Context(), []api.MetricDTO{
 		{ID: "cpu", MType: "gauge", Value: ptr(3.14)},
 		{ID: "hits", MType: "counter", Delta: ptr(int64(5))},
@@ -127,7 +127,7 @@ func TestClient_SendMetrics_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	err := client.SendMetrics(t.Context(), []api.MetricDTO{
 		{ID: "cpu", MType: "gauge", Value: ptr(1.0)},
 	})
@@ -147,7 +147,7 @@ func TestSendBatch_SendsToUpdatesEndpoint(t *testing.T) {
 	storage.SetGauge("cpu", 1.5)
 	storage.AddCounter("hits", 10)
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	SendBatch(t.Context(), client, CollectBatch(storage))
 
 	assert.Equal(t, "/updates", capturedPath)
@@ -162,7 +162,7 @@ func TestSendBatch_EmptyStorage_NoRequest(t *testing.T) {
 	defer server.Close()
 
 	storage := NewLocalStorage() // пустое хранилище
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	SendBatch(t.Context(), client, CollectBatch(storage))
 
 	assert.False(t, requestMade, "should not send request for empty storage")
@@ -182,7 +182,7 @@ func TestSendBatch_NoRetryOnServerError(t *testing.T) {
 		{ID: "cpu", MType: "gauge", Value: ptr(1.0)},
 	}
 
-	client := NewClient(server.URL)
+	client := NewClient(server.URL, "")
 	SendBatch(t.Context(), client, metrics)
 
 	assert.Equal(t, int32(1), atomic.LoadInt32(&calls),
@@ -211,7 +211,7 @@ func TestSendBatch_RetriesOnNetworkError(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		client := NewClient(addr)
+		client := NewClient(addr, "")
 		SendBatch(ctx, client, metrics) // не должен паниковать, корректно завершается по ctx
 		close(done)
 	}()

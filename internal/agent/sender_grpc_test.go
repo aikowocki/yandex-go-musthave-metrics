@@ -93,7 +93,7 @@ func TestNewGRPCClient(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client, err := NewGRPCClient(tt.address)
+			client, err := NewGRPCClient(tt.address, OutboundIP(tt.address))
 
 			if tt.wantErr {
 				assert.Error(t, err)

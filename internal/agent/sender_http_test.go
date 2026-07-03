@@ -77,7 +77,7 @@ func TestClient_SendMetrics_GzipAndHMAC(t *testing.T) {
 	const key = "secret-key"
 	srv, captured, mu := newCapturingServer(t, nil)
 
-	client := NewClient(srv.URL, WithServerKey(key))
+	client := NewClient(srv.URL, "", WithServerKey(key))
 
 	delta := int64(5)
 	value := 3.14
@@ -109,7 +109,7 @@ func TestClient_SendMetrics_GzipAndHMAC(t *testing.T) {
 
 func TestClient_SendMetricJSON(t *testing.T) {
 	srv, captured, mu := newCapturingServer(t, nil)
-	client := NewClient(srv.URL)
+	client := NewClient(srv.URL, "")
 
 	value := 42.0
 	err := client.SendMetricJSON(api.MetricDTO{
@@ -128,7 +128,7 @@ func TestClient_SendMetricJSON(t *testing.T) {
 
 func TestClient_SendMetric_PathBased(t *testing.T) {
 	srv, captured, mu := newCapturingServer(t, nil)
-	client := NewClient(srv.URL)
+	client := NewClient(srv.URL, "")
 
 	err := client.SendMetric(api.MetricTypeGauge, "load", "1.5")
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestClient_RSAEncryption(t *testing.T) {
 
 	srv, captured, mu := newCapturingServer(t, priv)
 
-	client := NewClient(srv.URL, WithCryptoKey(pubFile))
+	client := NewClient(srv.URL, "", WithCryptoKey(pubFile))
 
 	value := 99.9
 	err = client.SendMetricJSON(api.MetricDTO{
@@ -177,7 +177,7 @@ func TestClient_RSAEncryption(t *testing.T) {
 func TestReport_And_ReportJSON(t *testing.T) {
 	t.Run("Report (path-based)", func(t *testing.T) {
 		srv, captured, mu := newCapturingServer(t, nil)
-		client := NewClient(srv.URL)
+		client := NewClient(srv.URL, "")
 
 		storage := NewLocalStorage()
 		storage.SetGauge("g1", 1.0)
@@ -193,7 +193,7 @@ func TestReport_And_ReportJSON(t *testing.T) {
 
 	t.Run("ReportJSON", func(t *testing.T) {
 		srv, captured, mu := newCapturingServer(t, nil)
-		client := NewClient(srv.URL)
+		client := NewClient(srv.URL, "")
 
 		storage := NewLocalStorage()
 		storage.SetGauge("g1", 2.0)

@@ -22,7 +22,7 @@ func (c *GRPCClient) Close() error {
 	return c.conn.Close()
 }
 
-func NewGRPCClient(address string) (*GRPCClient, error) {
+func NewGRPCClient(address string, ip string) (*GRPCClient, error) {
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func NewGRPCClient(address string) (*GRPCClient, error) {
 
 	return &GRPCClient{
 		client: pb.NewMetricsClient(conn),
-		ip:     outboundIP(address),
+		ip:     ip,
 		conn:   conn,
 	}, nil
 }
